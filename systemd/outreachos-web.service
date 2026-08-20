@@ -1,0 +1,16 @@
+[Unit]
+Description=OutreachOS Signals — Web UI (FastAPI)
+After=network-online.target
+
+[Service]
+Type=simple
+WorkingDirectory=/home/manager/outreachos-signals
+EnvironmentFile=/home/manager/outreachos-signals/.env
+ExecStart=/usr/bin/python3 -m uvicorn web.app:app --host 127.0.0.1 --port 8000 --workers 1
+Restart=always
+RestartSec=5
+StandardOutput=append:/home/manager/outreachos-signals/logs/web.log
+StandardError=append:/home/manager/outreachos-signals/logs/web.err
+
+[Install]
+WantedBy=default.target

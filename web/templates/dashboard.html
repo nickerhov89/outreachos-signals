@@ -1,0 +1,83 @@
+{% extends "base.html" %}
+{% block title %}Dashboard · OutreachOS Signals{% endblock %}
+{% block content %}
+
+<div class="row mb-4">
+  <div class="col-md-3">
+    <div class="kpi-card kpi-blue">
+      <div class="kpi-label">Total Events</div>
+      <div class="kpi-value">{{ kpis.total_events }}</div>
+    </div>
+  </div>
+  <div class="col-md-3">
+    <div class="kpi-card kpi-green">
+      <div class="kpi-label">Classified</div>
+      <div class="kpi-value">{{ kpis.total_classified }}</div>
+    </div>
+  </div>
+  <div class="col-md-3">
+    <div class="kpi-card kpi-purple">
+      <div class="kpi-label">With Contacts</div>
+      <div class="kpi-value">{{ kpis.total_with_contacts }}</div>
+    </div>
+  </div>
+  <div class="col-md-3">
+    <div class="kpi-card kpi-orange">
+      <div class="kpi-label">Last 24h</div>
+      <div class="kpi-value">{{ kpis.events_24h }}</div>
+    </div>
+  </div>
+</div>
+
+<h3 class="mb-3">Niches</h3>
+<div class="row mb-5">
+  {% for n in niche_stats %}
+  <div class="col-md-4 col-lg-3 mb-3">
+    <a href="/niche/{{ n.id }}" class="niche-card" style="border-left-color: {{ n.color }}">
+      <div class="niche-emoji">{{ n.emoji }}</div>
+      <div class="niche-name">{{ n.name }}</div>
+      <div class="niche-stats">
+        <span class="badge bg-secondary">{{ n.event_count }} events</span>
+        <span class="badge bg-success">{{ n.classified_count }} scored</span>
+      </div>
+    </a>
+  </div>
+  {% endfor %}
+</div>
+
+<div class="row">
+  <div class="col-md-6">
+    <h4>Sources</h4>
+    <table class="table table-sm">
+      <thead><tr><th>Source</th><th>Events</th><th></th></tr></thead>
+      <tbody>
+        {% for s in sources %}
+        <tr>
+          <td><span class="source-pill" style="background: {{ source_colors.get(s.source, '#6b7280') }}">{{ s.source }}</span></td>
+          <td>{{ s.c }}</td>
+          <td><div class="source-bar"><div class="source-bar-fill" style="width: {{ (s.c / sources[0].c * 100) if sources else 0 }}%; background: {{ source_colors.get(s.source, '#6b7280') }}"></div></div></td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  <div class="col-md-6">
+    <h4>Top Scored Signals</h4>
+    <table class="table table-sm">
+      <thead><tr><th>Score</th><th>Company</th><th>Signal</th><th>Source</th><th>Age</th></tr></thead>
+      <tbody>
+        {% for s in recent %}
+        <tr>
+          <td><span class="score-badge score-{{ (s.score | round | int) if s.score else 0 }}">{{ "%.1f" | format(s.score) if s.score else "—" }}</span></td>
+          <td><a href="/signal/{{ s.event_id }}">{{ s.company_name or "—" }}</a></td>
+          <td class="signal-text">{{ s.raw_text[:80] }}{% if s.raw_text|length > 80 %}…{% endif %}</td>
+          <td><span class="source-pill-sm" style="background: {{ source_colors.get(s.source, '#6b7280') }}">{{ s.source }}</span></td>
+          <td class="text-muted small">{{ s.collected_at | age }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+
+{% endblock %}

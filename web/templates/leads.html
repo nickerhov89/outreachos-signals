@@ -1,0 +1,65 @@
+{% extends "base.html" %}
+{% block title %}Top Leads · OutreachOS Signals{% endblock %}
+{% block content %}
+
+<div class="d-flex align-items-center mb-3">
+  <h2>🎯 Top Leads</h2>
+  <span class="ms-3 text-muted">score ≥ {{ min_score }} · {{ leads | length }} results</span>
+  <div class="ms-auto">
+    <a href="/api/export.xlsx?min_score={{ min_score }}" class="btn btn-success">📥 Export XLSX</a>
+  </div>
+</div>
+
+<form class="mb-3 d-flex gap-2" method="get">
+  <select name="min_score" class="form-select" style="width: auto;" onchange="this.form.submit()">
+    <option value="5" {% if min_score == 5 %}selected{% endif %}>Score ≥ 5</option>
+    <option value="6" {% if min_score == 6 %}selected{% endif %}>Score ≥ 6</option>
+    <option value="7" {% if min_score == 7 %}selected{% endif %}>Score ≥ 7 (qualified)</option>
+    <option value="8" {% if min_score == 8 %}selected{% endif %}>Score ≥ 8 (high)</option>
+    <option value="9" {% if min_score == 9 %}selected{% endif %}>Score ≥ 9 (excellent)</option>
+  </select>
+  <noscript><button class="btn btn-primary">Filter</button></noscript>
+</form>
+
+<div class="row">
+{% for lead in leads %}
+<div class="col-md-6 mb-3">
+  <div class="card lead-card">
+    <div class="card-body">
+      <div class="d-flex align-items-center mb-2">
+        <h5 class="mb-0">{{ lead.company_name or "Unknown" }}</h5>
+        <span class="score-badge score-{{ lead.score | round | int }} ms-2">{{ "%.1f" | format(lead.score) }}</span>
+        <span class="source-pill-sm ms-auto" style="background: {{ source_colors.get(lead.source, '#6b7280') }}">{{ lead.source }}</span>
+      </div>
+      <div class="text-muted small mb-2">{{ lead.collected_at | age }} · case: {{ lead.case_match or "—" }}</div>
+      <p class="mb-2"><strong>Signal:</strong> {{ lead.raw_text }}</p>
+      {% if lead.first_angle %}
+      <div class="first-angle-sm">"{{ lead.first_angle }}"</div>
+      {% endif %}
+      {% if lead.buyer_contacts %}
+      <div class="mt-2">
+        {% for c in lead.buyer_contacts[:3] %}
+        <span class="contact-chip status-{{ c.status or 'unknown' }}">{{ c.role }}: {{ c.email }} ({{ c.status }})</span>
+        {% endfor %}
+        {% if lead.buyer_contacts | length > 3 %}
+        <span class="text-muted small">+{{ lead.buyer_contacts | length - 3 }} more</span>
+        {% endif %}
+      </div>
+      {% endif %}
+      <div class="mt-2">
+        <a href="/signal/{{ lead.event_id }}" class="btn btn-sm btn-outline-primary">Open</a>
+        {% if lead.evidence_url %}
+        <a href="{{ lead.evidence_url }}" target="_blank" class="btn btn-sm btn-outline-secondary">Source</a>
+        {% endif %}
+      </div>
+    </div>
+  </div>
+</div>
+{% endfor %}
+</div>
+
+{% if not leads %}
+<div class="alert alert-info">No leads at this score threshold. Run <code>pipeline/classify.py</code> to score events.</div>
+{% endif %}
+
+{% endblock %}

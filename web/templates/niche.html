@@ -1,0 +1,73 @@
+{% extends "base.html" %}
+{% block title %}{{ niche.name }} · OutreachOS Signals{% endblock %}
+{% block content %}
+
+<div class="d-flex align-items-center mb-3">
+  <span class="niche-emoji-large me-3" style="background: {{ niche.color }}">{{ niche.emoji }}</span>
+  <div>
+    <h2 class="mb-0">{{ niche.name }}</h2>
+    <div class="text-muted">{{ signals | length }} signals · min score {{ min_score }}</div>
+  </div>
+  <div class="ms-auto">
+    <a href="/api/export.xlsx?niche={{ niche.id }}&min_score={{ min_score }}" class="btn btn-success">📥 Export XLSX</a>
+  </div>
+</div>
+
+<form class="mb-3 d-flex gap-2" method="get">
+  <select name="min_score" class="form-select" style="width: auto;" onchange="this.form.submit()">
+    <option value="0" {% if min_score == 0 %}selected{% endif %}>All signals</option>
+    <option value="5" {% if min_score == 5 %}selected{% endif %}>Score ≥ 5</option>
+    <option value="7" {% if min_score == 7 %}selected{% endif %}>Score ≥ 7 (qualified)</option>
+    <option value="8" {% if min_score == 8 %}selected{% endif %}>Score ≥ 8 (high)</option>
+    <option value="9" {% if min_score == 9 %}selected{% endif %}>Score ≥ 9 (excellent)</option>
+  </select>
+  <noscript><button class="btn btn-primary">Filter</button></noscript>
+</form>
+
+<div class="table-responsive">
+<table class="table table-hover align-middle">
+  <thead class="table-light">
+    <tr>
+      <th>Score</th>
+      <th>Company</th>
+      <th>Signal</th>
+      <th>Source</th>
+      <th>Date</th>
+      <th>Contacts</th>
+      <th></th>
+    </tr>
+  </thead>
+  <tbody>
+    {% for s in signals %}
+    <tr>
+      <td>
+        {% if s.score %}
+        <span class="score-badge score-{{ s.score | round | int }}">{{ "%.1f" | format(s.score) }}</span>
+        {% else %}
+        <span class="text-muted">—</span>
+        {% endif %}
+      </td>
+      <td><strong>{{ s.company_name or s.company_domain or "—" }}</strong></td>
+      <td class="signal-text">{{ s.raw_text[:100] }}{% if s.raw_text|length > 100 %}…{% endif %}</td>
+      <td><span class="source-pill-sm" style="background: {{ source_colors.get(s.source, '#6b7280') }}">{{ s.source }}</span></td>
+      <td class="text-muted small">{{ s.collected_at | age }}</td>
+      <td>
+        {% if s.buyer_contacts_json %}
+          {% set contacts = s.buyer_contacts_json | fromjson %}
+          <span class="badge bg-info">{{ contacts | length }} contacts</span>
+        {% else %}
+          <span class="text-muted">—</span>
+        {% endif %}
+      </td>
+      <td><a href="/signal/{{ s.event_id }}" class="btn btn-sm btn-outline-primary">View</a></td>
+    </tr>
+    {% endfor %}
+  </tbody>
+</table>
+</div>
+
+{% if not signals %}
+<div class="alert alert-info">No signals yet for this niche. Run collectors (cron daily) to populate.</div>
+{% endif %}
+
+{% endblock %}

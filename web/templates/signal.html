@@ -1,0 +1,95 @@
+{% extends "base.html" %}
+{% block title %}{{ signal.company_name or signal.event_id[:8] }} · Signal{% endblock %}
+{% block content %}
+
+<nav aria-label="breadcrumb">
+  <ol class="breadcrumb">
+    <li class="breadcrumb-item"><a href="/">Dashboard</a></li>
+    {% if signal.niche_id %}
+    <li class="breadcrumb-item"><a href="/niche/{{ signal.niche_id }}">Niche {{ signal.niche_id }}</a></li>
+    {% endif %}
+    <li class="breadcrumb-item active">{{ signal.event_id[:8] }}</li>
+  </ol>
+</nav>
+
+<div class="row">
+  <div class="col-md-8">
+    <div class="card mb-3">
+      <div class="card-body">
+        <div class="d-flex align-items-center mb-3">
+          <h3 class="mb-0">{{ signal.company_name or "Unknown" }}</h3>
+          {% if signal.score %}
+          <span class="score-badge score-{{ signal.score | round | int }} ms-3">{{ "%.1f" | format(signal.score) }}</span>
+          {% endif %}
+          <span class="source-pill ms-3" style="background: {{ source_colors.get(signal.source, '#6b7280') }}">{{ signal.source }}</span>
+        </div>
+        <div class="text-muted small mb-3">
+          <span>{{ signal.event_type }}{% if signal.event_subtype %} / {{ signal.event_subtype }}{% endif %}</span>
+          · <span>{{ signal.collected_at | age }}</span>
+          {% if signal.event_date %} · event date {{ signal.event_date }}{% endif %}
+        </div>
+        <h5>Signal</h5>
+        <p class="lead">{{ signal.raw_text }}</p>
+        {% if signal.evidence_snippet %}
+        <h6 class="mt-3 text-muted">Evidence</h6>
+        <blockquote class="evidence-block">{{ signal.evidence_snippet }}</blockquote>
+        {% endif %}
+        {% if signal.first_angle %}
+        <h5 class="mt-4">First Angle (Claude)</h5>
+        <div class="first-angle">{{ signal.first_angle }}</div>
+        {% endif %}
+        {% if signal.case_match %}
+        <h6 class="mt-3">Polza case match</h6>
+        <span class="badge bg-warning text-dark">📊 {{ signal.case_match }}</span>
+        {% endif %}
+        <div class="mt-4">
+          {% if signal.evidence_url %}
+          <a href="{{ signal.evidence_url }}" target="_blank" class="btn btn-outline-primary btn-sm">🔗 Open source</a>
+          {% endif %}
+          <a href="/api/signals?niche={{ signal.niche_id }}&min_score={{ (signal.score - 1) if signal.score else 0 }}" class="btn btn-outline-secondary btn-sm">More like this</a>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="col-md-4">
+    <div class="card mb-3">
+      <div class="card-header">📊 Scoring</div>
+      <ul class="list-group list-group-flush">
+        <li class="list-group-item d-flex justify-content-between"><span>ICP match</span><strong>{{ "%.2f" | format(signal.icp_match) if signal.icp_match else "—" }}</strong></li>
+        <li class="list-group-item d-flex justify-content-between"><span>Evidence</span><strong>{{ "%.2f" | format(signal.evidence_strength) if signal.evidence_strength else "—" }}</strong></li>
+        <li class="list-group-item d-flex justify-content-between"><span>Urgency</span><strong>{{ "%.2f" | format(signal.urgency) if signal.urgency else "—" }}</strong></li>
+        <li class="list-group-item d-flex justify-content-between"><span>Total score</span><strong>{{ "%.1f" | format(signal.score) if signal.score else "—" }}</strong></li>
+      </ul>
+    </div>
+
+    <div class="card mb-3">
+      <div class="card-header">👥 Buyer Contacts</div>
+      <div class="card-body">
+        {% if signal.buyer_contacts %}
+          {% for c in signal.buyer_contacts %}
+          <div class="contact-card status-{{ c.status or 'unknown' }}">
+            <div class="contact-role">{{ c.role or "?" }}</div>
+            {% if c.name %}<div class="contact-name">{{ c.name }}</div>{% endif %}
+            <div class="contact-email"><a href="mailto:{{ c.email }}">{{ c.email }}</a></div>
+            <span class="contact-status">{{ c.status }} · {{ c.pattern }}</span>
+          </div>
+          {% endfor %}
+        {% else %}
+          <p class="text-muted small mb-0">No contacts yet. Run <code>pipeline/enrich.py</code> to brute-force + SMTP-verify.</p>
+        {% endif %}
+      </div>
+    </div>
+
+    {% if signal.raw_metadata_obj %}
+    <div class="card mb-3">
+      <div class="card-header">🔧 Metadata</div>
+      <div class="card-body small">
+        <pre class="mb-0">{{ signal.raw_metadata_obj | tojson(indent=2) }}</pre>
+      </div>
+    </div>
+    {% endif %}
+  </div>
+</div>
+
+{% endblock %}
