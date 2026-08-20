@@ -5,6 +5,9 @@
 - /pricing : paywall
 """
 from __future__ import annotations
+import time
+import urllib.request
+import urllib.parse
 
 import json
 import os
@@ -398,9 +401,92 @@ def generate(request: Request, url: str = Form(...)):
     ))
 
 
+
+
+# ============================================================
+# Outscraper live helpers
+# ============================================================
+OS_API_KEY = os.getenv("OUTSCRAPER_API_KEY", "")
+
+PERSONAL_DOMAINS = {"gmail.com","hotmail.com","yahoo.com","outlook.com","aol.com","icloud.com","protonmail.com","proton.me","mail.com","live.com","msn.com"}
+BUYER_TITLES = [
+    "founder","co-founder","co founder","ceo","chief","head of","vp","vice president",
+    "director","marketing","growth","sales","partnership","partnerships","revenue",
+    "demand generation","demand gen","business development","bd","cmo","cfo","coo",
+    "product","engineering manager","devrel","developer relations","developer advocate",
+]
+
+def _is_corporate(email: str) -> bool:
+    if not email or "@" not in email:
+        return False
+    dom = email.split("@", 1)[1].lower().strip()
+    return dom not in PERSONAL_DOMAINS and not dom.endswith(".edu")
+
+def _is_buyer_title(title: str) -> bool:
+    if not title:
+        return False
+    t = title.lower()
+    return any(kw in t for kw in BUYER_TITLES)
+
+def _outscraper_contacts(domain: str, per_company: int = 5) -> list[dict]:
+    """Live Outscraper query. Returns up to N best contacts for the domain."""
+    if not OS_API_KEY:
+        return []
+    url = f"https://api.outscraper.cloud/leads-and-contacts?query={domain}&async=false&limit=1&contactsPerCompany={per_company}"
+    try:
+        req = urllib.request.Request(url, headers={"X-API-KEY": OS_API_KEY})
+        with urllib.request.urlopen(req, timeout=20) as r:
+            data = json.loads(r.read())
+        items = data.get("data") or []
+        if not items:
+            return []
+        contacts = (items[0] or {}).get("contacts") or []
+        out = []
+        for c in contacts:
+            full = c.get("full_name") or c.get("name") or ""
+            if not full:
+                continue
+            emails_raw = c.get("emails") or []
+            email = ""
+            for e in emails_raw:
+                v = e.get("value") if isinstance(e, dict) else None
+                if v and "@" in v:
+                    email = v
+                    break
+            if not email:
+                continue
+            li_slug = (c.get("socials") or {}).get("linkedin") or ""
+            li_url = ""
+            if li_slug.startswith("http"):
+                li_url = li_slug
+            elif li_slug:
+                li_url = f"https://www.linkedin.com/in/{li_slug}"
+            out.append({
+                "name": full,
+                "email": email,
+                "title": c.get("title") or "",
+                "level": c.get("level") or "",
+                "linkedin": li_url,
+            })
+        return out
+    except Exception as ex:
+        print(f"  [OS-LIVE ERR] {domain}: {ex}", flush=True)
+        return []
+
+def _rank_contacts(contacts: list[dict]) -> list[dict]:
+    """Prefer corporate + buyer titles. Stable sort."""
+    def key(c):
+        corp = 1 if _is_corporate(c.get("email", "")) else 0
+        buyer = 1 if _is_buyer_title(c.get("title", "")) else 0
+        return (corp, buyer)
+    return sorted(contacts, key=key, reverse=True)
+
+
 @app.post("/reveal")
 async def reveal(request: Request, email: str = Form(...), domains: str = Form(...), niche_id: str = Form(default="")):
-    """After user submits email, reveal 3 contacts from the chosen domains."""
+    """After user submits email, reveal 3 contacts from the chosen domains.
+    Order: 1) DB cache, 2) Outscraper live, 3) DIY SMTP fallback.
+    Per contact: prefer corporate email + buyer title."""
     # 1. email validation
     email_valid, reason = is_valid_email(email); info = {}
     if not email_valid:
@@ -420,6 +506,8 @@ async def reveal(request: Request, email: str = Form(...), domains: str = Form(.
     revealed = []
     with db() as conn:
         for d in doms[:3]:
+            contact_obj = None
+            # 4a. try DB cache
             row = conn.execute("""
                 SELECT e.company_name, e.company_domain, c.buyer_contacts_json
                 FROM signal_events e
@@ -429,37 +517,63 @@ async def reveal(request: Request, email: str = Form(...), domains: str = Form(.
                 ORDER BY c.score DESC
                 LIMIT 1
             """, (d,)).fetchone()
+            company_name = None
+            cached_contacts = []
             if row:
-                d_data = dict(row)
+                company_name = row["company_name"]
                 try:
-                    payload = json.loads(d_data["buyer_contacts_json"])
-                    contacts = payload.get("contacts", [])
-                    # filter: prefer corporate emails
-                    real = [c for c in contacts if c.get("email") and "@" in c["email"] and not any(x in c["email"] for x in ["gmail.com","hotmail.com","yahoo.com","outlook.com","aol.com"])]
-                    fallback = [c for c in contacts if c.get("email") and "@" in c["email"]]
-                    chosen = real + fallback
-                    if chosen:
-                        revealed.append({
-                            "company": d_data["company_name"],
-                            "domain": d_data["company_domain"],
-                            "contact": chosen[0],
-                        })
+                    payload = json.loads(row["buyer_contacts_json"])
+                    raw = payload.get("contacts", [])
+                    for c in raw:
+                        em = c.get("email") or ""
+                        if em and "@" in em:
+                            cached_contacts.append({
+                                "name": c.get("name") or c.get("full_name") or "",
+                                "email": em,
+                                "title": c.get("title") or "",
+                                "level": c.get("level") or "",
+                                "linkedin": c.get("linkedin") or "",
+                            })
                 except Exception:
                     pass
+            # 4b. Outscraper live (overrides if returns more)
+            live_contacts = _outscraper_contacts(d, per_company=6)
+            # 4c. pick best
+            all_contacts = cached_contacts + live_contacts
+            ranked = _rank_contacts(all_contacts)
+            if ranked:
+                contact_obj = ranked[0]
+                # persist the live result back to DB so next reveal is cached
+                if live_contacts:
+                    payload = json.dumps({"contacts": live_contacts, "source": "outscraper_live", "fetched_at": time.time()})
+                    conn.execute("""
+                        UPDATE signal_classifications
+                        SET buyer_contacts_json = ?
+                        WHERE event_id IN (
+                            SELECT event_id FROM signal_events WHERE company_domain = ? ORDER BY collected_at DESC LIMIT 1
+                        )
+                    """, (payload, d))
+                    conn.commit()
+            if contact_obj:
+                revealed.append({
+                    "company": company_name or d,
+                    "domain": d,
+                    "contact": contact_obj,
+                })
     # 5. log the view
-    if revealed:
-        with db() as conn:
-            conn.execute("""
-                insert into lead_views (email, url_input, niche_id, domains_json,
-                                         contacts_revealed, ip_address, user_agent, antifraud_score)
-                values (?, ?, ?, ?, ?, ?, ?, ?)
-            """, (
-                email.lower(), info_af.get("ip"), int(niche_id) if niche_id.isdigit() else None,
-                json.dumps(doms), len(revealed),
-                info_af["ip"], info_af["ua"], 0.1,
-            ))
-            conn.commit()
+    with db() as conn:
+        conn.execute("""
+            insert into lead_views (email, url_input, niche_id, domains_json,
+                                     contacts_revealed, ip_address, user_agent, antifraud_score)
+            values (?, ?, ?, ?, ?, ?, ?, ?)
+        """, (
+            email.lower(), info_af.get("ip"), int(niche_id) if niche_id.isdigit() else None,
+            json.dumps(doms), len(revealed),
+            info_af["ip"], info_af["ua"], 0.1,
+        ))
+        conn.commit()
     return JSONResponse({"ok": True, "revealed": revealed, "total_in_niche": len(doms)})
+
 
 
 @app.get("/pricing", response_class=HTMLResponse)

@@ -1,258 +1,792 @@
 niches:
-  - id: 1
-    name: "CRM / BPM / Automation"
-    ats_titles: ["VP Sales", "VP RevOps", "Head of Sales Operations", "Director of Revenue Operations", "Head of GTM", "GTM Engineer", "Sales Engineer", "Account Executive"]
-    threads_keywords: ["new CRO", "RevOps", "HubSpot migration", "Salesforce migration", "GTM engineering", "outbound automation", "sales engagement", "sales pipeline"]
-    linkedin_queries: ["VP Sales", "VP RevOps", "Head of Sales Operations"]
-    keywords: ["crm", "salesforce", "hubspot", "pipedrive", "zoho", "freshsales", "outreach", "salesloft", "apollo", "gong", "chorus", "clari", "revops", "sales operations", "sales engagement", "bpm", "automation", "workflow", "gtm", "revenue operations", "lead scoring", "lead routing", "sales enablement", "zoominfo", "6sense", "demandbase", "ltv", "sales cycle", "sales playbook"]
-    domain_overrides:
-      - "klaviyo.com"
-      - "outreach.io"
-      - "salesloft.com"
-      - "gong.io"
-      - "chorus.ai"
-      - "hubspot.com"
-      - "salesforce.com"
-      - "pipedrive.com"
-      - "apollo.io"
-      - "gainsight.com"
-      - "chili-piper.com"
-      - "calendly.com"
-      - "savvycal.com"
-      - "chorus.ai"
-      - "orum.com"
-
-  - id: 2
-    name: "HRTech / Recruitment"
-    ats_titles: ["Head of People", "Head of Talent", "VP People", "Director of Talent Acquisition", "Head of Recruiting", "Talent Acquisition Lead"]
-    threads_keywords: ["hiring 5 SDRs", "first recruiter", "Talent Acquisition", "Head of People", "first 10 hires", "talent ops", "ATS migration"]
-    linkedin_queries: ["Head of People", "Head of Talent", "VP People"]
-    keywords: ["hrtech", "greenhouse", "lever", "workable", "smartrecruiters", "ashby", "bamboo", "rippling", "gusto", "deel", "remote", "personio", "hibob", "lattice", "cultureamp", "15five", "performance", "ats", "applicant tracking", "recruiting", "talent", "headcount", "people ops", "human resources", "workday", "adp", "paycom", "paychex", "payroll", "hiring", "onboarding", "employer brand"]
-    domain_overrides:
-      - "greenhouse.io"
-      - "lever.co"
-      - "ashbyhq.com"
-      - "bamboohr.com"
-      - "rippling.com"
-      - "gusto.com"
-      - "deel.com"
-      - "remote.com"
-      - "lattice.com"
-      - "workable.com"
-      - "hibob.com"
-      - "personio.com"
-      - "workday.com"
-      - "adp.com"
-
-  - id: 3
-    name: "MarTech / Analytics"
-    ats_titles: ["Demand Gen Manager", "Growth Marketing Lead", "Director of Marketing Operations", "Head of Growth", "MMM Lead", "Attribution Lead"]
-    threads_keywords: ["demand gen", "marketing mix modeling", "MMM", "attribution", "stack consolidation", "growth marketing", "PLG", "SEO", "paid acquisition"]
-    linkedin_queries: ["Demand Gen Manager", "Director of Marketing Operations", "Head of Growth"]
-    keywords: ["klaviyo", "mailchimp", "hubspot", "marketo", "sendgrid", "iterable", "braze", "customer.io", "attentive", "sailthru", "activecampaign", "convertkit", "drip", "marketing automation", "email marketing", "sms marketing", "crm marketing", "demand gen", "growth marketing", "abm", "analytics", "amplitude", "mixpanel", "segment", "rudderstack", "snowplow", "attribution", "mmm", "marketing mix", "lifecycle", "retention", "engagement", "martech", "adtech", "cmo", "growth team", "seo", "content marketing"]
-    domain_overrides:
-      - "klaviyo.com"
-      - "mailchimp.com"
-      - "iterable.com"
-      - "braze.com"
-      - "customer.io"
-      - "attentive.com"
-      - "amplitude.com"
-      - "mixpanel.com"
-      - "segment.com"
-      - "rudderstack.com"
-      - "sendgrid.com"
-      - "marketo.com"
-
-  - id: 4
-    name: "AI / Data"
-    ats_titles: ["ML Platform Engineer", "MLOps Engineer", "Vector DB Engineer", "RAG Engineer", "Data Engineering Lead", "Fine-tuning Engineer"]
-    threads_keywords: ["fine-tuning", "RAG", "vector DB", "Pinecone", "Weaviate", "ML platform", "LLM ops", "AI infrastructure", "embeddings", "data quality"]
-    linkedin_queries: ["ML Platform Engineer", "MLOps Engineer", "RAG Engineer"]
-    keywords: ["openai", "anthropic", "claude", "gpt", "llm", "rag", "vector", "embedding", "pinecone", "weaviate", "chroma", "qdrant", "langchain", "llamaindex", "databricks", "snowflake", "dbt", "fivetran", "airbyte", "data warehouse", "data lake", "etl", "mlops", "ml platform", "data engineering", "dataops", "feature store", "model deployment", "ai infrastructure", "huggingface", "replicate", "weights and biases", "labelbox", "scale ai", "snorkel", "machine learning", "data science", "ai team", "model training", "fine-tuning"]
-    domain_overrides:
-      - "openai.com"
-      - "anthropic.com"
-      - "huggingface.co"
-      - "pinecone.io"
-      - "weaviate.io"
-      - "chroma.ai"
-      - "qdrant.tech"
-      - "langchain.com"
-      - "llamaindex.ai"
-      - "databricks.com"
-      - "snowflake.com"
-      - "dbtlabs.com"
-      - "fivetran.com"
-      - "replicate.com"
-      - "scale.com"
-      - "weightsandbiases.com"
-
-  - id: 5
-    name: "B2B SaaS"
-    ats_titles: ["VP Product", "Head of Product", "Director of Product", "Head of Customer Success", "Expansion Manager"]
-    threads_keywords: ["usage-based pricing", "PLG", "expansion revenue", "self-serve", "EU expansion", "product-led", "ARR growth", "NRR"]
-    linkedin_queries: ["VP Product", "Head of Product", "Head of Customer Success"]
-    keywords: ["saas", "b2b", "product-led", "plg", "self-serve", "freemium", "expansion revenue", "nrr", "arr", "mrr", "churn", "retention", "ltv", "cac", "product-market fit", "usage-based pricing", "stripe", "linear", "notion", "airtable", "webflow", "zapier", "figma", "loom", "slack", "intercom", "zendesk", "freshdesk", "drift", "productboard", "aha", "pendo", "appcues", "userpilot", "customer success", "onboarding", "expansion manager"]
-    domain_overrides:
-      - "stripe.com"
-      - "linear.app"
-      - "notion.so"
-      - "airtable.com"
-      - "webflow.com"
-      - "zapier.com"
-      - "figma.com"
-      - "loom.com"
-      - "slack.com"
-      - "intercom.com"
-      - "zendesk.com"
-      - "pendo.io"
-      - "productboard.com"
-      - "aha.io"
-      - "appcues.com"
-      - "userpilot.com"
-
-  - id: 6
-    name: "IT Services / Integration"
-    ats_titles: ["Outsource Dev Lead", "Platform Migration Engineer", "Tech Lead Rewrite", "MVP Engineer", "CTO"]
-    threads_keywords: ["outsource dev", "tech debt", "platform migration", "MVP build", "rewrite", "code audit", "fractional CTO", "engineering team"]
-    linkedin_queries: ["Platform Engineer", "Tech Lead", "Outsource Dev Lead"]
-    keywords: ["outsource", "offshore", "nearshoring", "fractional cto", "tech debt", "code modernization", "rewrite", "migration", "platform migration", "monolith", "microservices", "kubernetes", "devops", "sre", "infrastructure", "cloud migration", "aws", "gcp", "azure", "digital transformation", "system integrator", "consulting", "agency", "studio", "engineering team", "build vs buy", "mvp"]
-    domain_overrides:
-      - "epam.com"
-      - "globallogic.com"
-      - "toptal.com"
-      - "upwork.com"
-      - "turing.com"
-      - "revelo.io"
-      - "codersrank.com"
-
-  - id: 7
-    name: "Cloud / Infrastructure"
-    ats_titles: ["CISO", "Head of Security", "Security Engineer", "FinOps Lead", "Cloud Cost Engineer", "SOC 2 Lead"]
-    threads_keywords: ["SOC 2", "CISO", "zero trust", "finops", "multi-cloud", "compliance deadline", "incident response", "data breach"]
-    linkedin_queries: ["CISO", "Head of Security", "FinOps Lead"]
-    keywords: ["cloud", "aws", "azure", "gcp", "kubernetes", "k8s", "docker", "terraform", "pulumi", "ansible", "jenkins", "github actions", "circleci", "argo", "helm", "istio", "envoy", "kong", "datadog", "newrelic", "grafana", "prometheus", "pagerduty", "sentry", "cloudflare", "akamai", "fastly", "cdn", "security", "ciso", "soc 2", "iso 27001", "gdpr", "ccpa", "hipaa", "pci", "compliance", "zero trust", "siem", "soc", "edr", "vulnerability", "penetration testing", "finops", "cloud cost", "infrastructure as code", "observability"]
-    domain_overrides:
-      - "aws.amazon.com"
-      - "cloud.google.com"
-      - "azure.microsoft.com"
-      - "cloudflare.com"
-      - "fastly.com"
-      - "akamai.com"
-      - "datadog.com"
-      - "newrelic.com"
-      - "grafana.com"
-      - "sentry.io"
-      - "pagerduty.com"
-      - "hashicorp.com"
-      - "terraform.io"
-      - "docker.com"
-      - "kubernetes.io"
-      - "crowdstrike.com"
-      - "okta.com"
-      - "auth0.com"
-      - "1password.com"
-
-  - id: 8
-    name: "FinTech / Payments"
-    ats_titles: ["Compliance Lead", "KYC Engineer", "AML Engineer", "Treasury Lead", "PSP Integration Engineer", "BaaS Lead"]
-    threads_keywords: ["PCI", "KYC", "embedded finance", "BaaS", "PSP integration", "open banking", "stablecoin", "real-time payments"]
-    linkedin_queries: ["Compliance Lead", "KYC Engineer", "Treasury Lead"]
-    keywords: ["fintech", "payments", "stripe", "adyen", "braintree", "checkout.com", "paddle", "chargebee", "recurly", "2c2p", "plaid", "mx", "finicity", "akoya", "wise", "remitly", "western union", "payoneer", "currencycloud", "embedded finance", "baas", "banking-as-a-service", "unit", "synctera", "treasury prime", "kyc", "aml", "bsa", "ofac", "compliance", "pci-dss", "psd2", "open banking", "stablecoin", "usdc", "crypto", "defi", "web3", "treasury", "fraud", "risk", "lending", "credit", "bnpl", "neobank", "chime", "mercury", "ramp", "brex", "navan"]
-    domain_overrides:
-      - "stripe.com"
-      - "adyen.com"
-      - "checkout.com"
-      - "braintreepayments.com"
-      - "plaid.com"
-      - "wise.com"
-      - "remitly.com"
-      - "payoneer.com"
-      - "unit.co"
-      - "treasuryprime.com"
-      - "synctera.com"
-      - "chime.com"
-      - "mercury.com"
-      - "ramp.com"
-      - "brex.com"
-      - "navan.com"
-      - "coinbase.com"
-      - "kraken.com"
-
-  - id: 9
-    name: "EdTech / LMS"
-    ats_titles: ["Head of B2B Learning", "Corporate Learning Lead", "Cohort Product Manager", "LMS Migration Lead"]
-    threads_keywords: ["cohort-based", "corporate learning", "B2B training", "LMS migration", "MOOC", "online course", "creator economy"]
-    linkedin_queries: ["Head of B2B Learning", "Corporate Learning Lead", "Cohort Product Manager"]
-    keywords: ["edtech", "lms", "learning management", "coursera", "udemy", "udacity", "khan academy", "duolingo", "babbel", "rosetta stone", "skillshare", "masterclass", "pluralsight", "codecademy", "maven", "cohort-based", "circle", "teachable", "thinkific", "kajabi", "podia", "schoolmaker", "graphy", "corporate learning", "l&d", "training", "mooc", "online education", "creator", "course platform"]
-    domain_overrides:
-      - "coursera.org"
-      - "udemy.com"
-      - "udacity.com"
-      - "khanacademy.org"
-      - "duolingo.com"
-      - "babbel.com"
-      - "skillshare.com"
-      - "masterclass.com"
-      - "pluralsight.com"
-      - "codecademy.com"
-      - "maven.co"
-      - "teachable.com"
-      - "thinkific.com"
-      - "kajabi.com"
-
-  - id: 10
-    name: "Marketplace / E-commerce tech"
-    ats_titles: ["Marketplace Operations Manager", "Seller Onboarding Lead", "Marketplace PM", "Trust and Safety Lead", "Two-sided PM"]
-    threads_keywords: ["marketplace", "two-sided", "onboarding sellers", "trust and safety", "expansion", "gig economy", "creator economy", "shopify app"]
-    keywords: ["marketplace", "two-sided", "etsy", "ebay", "amazon", "shopify", "walmart", "wayfair", "doordash", "uber", "lyft", "airbnb", "turo", "getaround", "fiverr", "upwork", "toptal", "thumbtack", "taskrabbit", "craigslist", "facebook marketplace", "offerup", "letgo", "stockx", "goat", "vinted", "poshmark", "depop", "mercari", "reverb", "discogs", "trust and safety", "seller onboarding", "creator economy", "creator marketplace", "gig economy", "shopify app", "woocommerce", "bigcommerce", "magento", "squarespace commerce", "wix commerce"]
-    domain_overrides:
-      - "shopify.com"
-      - "etsy.com"
-      - "amazon.com"
-      - "ebay.com"
-      - "doordash.com"
-      - "uber.com"
-      - "lyft.com"
-      - "airbnb.com"
-      - "fiverr.com"
-      - "upwork.com"
-      - "thumbtack.com"
-      - "taskrabbit.com"
-      - "stockx.com"
-      - "goat.com"
-      - "vinted.com"
-      - "poshmark.com"
-      - "mercari.com"
-      - "bigcommerce.com"
-      - "squarespace.com"
-      - "wix.com"
-
-ats_greenhouse_companies:
-  - anthropic
+- id: 1
+  name: CRM / BPM / Automation
+  ats_titles:
+  - VP Sales
+  - VP RevOps
+  - Head of Sales Operations
+  - Director of Revenue Operations
+  - Head of GTM
+  - GTM Engineer
+  - Sales Engineer
+  - Account Executive
+  threads_keywords:
+  - new CRO
+  - RevOps
+  - HubSpot migration
+  - Salesforce migration
+  - GTM engineering
+  - outbound automation
+  - sales engagement
+  - sales pipeline
+  linkedin_queries:
+  - VP Sales
+  - VP RevOps
+  - Head of Sales Operations
+  keywords:
+  - crm
+  - salesforce
+  - hubspot
+  - pipedrive
+  - zoho
+  - freshsales
+  - outreach
+  - salesloft
+  - apollo
+  - gong
+  - chorus
+  - clari
+  - revops
+  - sales operations
+  - sales engagement
+  - bpm
+  - automation
+  - workflow
+  - gtm
+  - revenue operations
+  - lead scoring
+  - lead routing
+  - sales enablement
+  - zoominfo
+  - 6sense
+  - demandbase
+  - ltv
+  - sales cycle
+  - sales playbook
+  domain_overrides:
+  - klaviyo.com
+  - outreach.io
+  - salesloft.com
+  - gong.io
+  - chorus.ai
+  - hubspot.com
+  - salesforce.com
+  - pipedrive.com
+  - apollo.io
+  - gainsight.com
+  - chili-piper.com
+  - calendly.com
+  - savvycal.com
+  - chorus.ai
+  - orum.com
+- id: 2
+  name: HRTech / Recruitment
+  ats_titles:
+  - Head of People
+  - Head of Talent
+  - VP People
+  - Director of Talent Acquisition
+  - Head of Recruiting
+  - Talent Acquisition Lead
+  threads_keywords:
+  - hiring 5 SDRs
+  - first recruiter
+  - Talent Acquisition
+  - Head of People
+  - first 10 hires
+  - talent ops
+  - ATS migration
+  linkedin_queries:
+  - Head of People
+  - Head of Talent
+  - VP People
+  keywords:
+  - hrtech
+  - greenhouse
+  - lever
+  - workable
+  - smartrecruiters
+  - ashby
+  - bamboo
+  - rippling
+  - gusto
+  - deel
+  - remote
+  - personio
+  - hibob
+  - lattice
+  - cultureamp
+  - 15five
+  - performance
+  - ats
+  - applicant tracking
+  - recruiting
+  - talent
+  - headcount
+  - people ops
+  - human resources
+  - workday
+  - adp
+  - paycom
+  - paychex
+  - payroll
+  - hiring
+  - onboarding
+  - employer brand
+  domain_overrides:
+  - greenhouse.io
+  - lever.co
+  - ashbyhq.com
+  - bamboohr.com
+  - rippling.com
+  - gusto.com
+  - deel.com
+  - remote.com
+  - lattice.com
+  - workable.com
+  - hibob.com
+  - personio.com
+  - workday.com
+  - adp.com
+- id: 3
+  name: MarTech / Analytics
+  ats_titles:
+  - Demand Gen Manager
+  - Growth Marketing Lead
+  - Director of Marketing Operations
+  - Head of Growth
+  - MMM Lead
+  - Attribution Lead
+  threads_keywords:
+  - demand gen
+  - marketing mix modeling
+  - MMM
+  - attribution
+  - stack consolidation
+  - growth marketing
+  - PLG
+  - SEO
+  - paid acquisition
+  linkedin_queries:
+  - Demand Gen Manager
+  - Director of Marketing Operations
+  - Head of Growth
+  keywords:
+  - klaviyo
+  - mailchimp
+  - hubspot
+  - marketo
+  - sendgrid
+  - iterable
+  - braze
+  - customer.io
+  - attentive
+  - sailthru
+  - activecampaign
+  - convertkit
+  - drip
+  - marketing automation
+  - email marketing
+  - sms marketing
+  - crm marketing
+  - demand gen
+  - growth marketing
+  - abm
+  - analytics
+  - amplitude
+  - mixpanel
+  - segment
+  - rudderstack
+  - snowplow
+  - attribution
+  - mmm
+  - marketing mix
+  - lifecycle
+  - retention
+  - engagement
+  - martech
+  - adtech
+  - cmo
+  - growth team
+  - seo
+  - content marketing
+  domain_overrides:
+  - klaviyo.com
+  - mailchimp.com
+  - iterable.com
+  - braze.com
+  - customer.io
+  - attentive.com
+  - amplitude.com
+  - mixpanel.com
+  - segment.com
+  - rudderstack.com
+  - sendgrid.com
+  - marketo.com
+- id: 4
+  name: AI / Data
+  ats_titles:
+  - ML Platform Engineer
+  - MLOps Engineer
+  - Vector DB Engineer
+  - RAG Engineer
+  - Data Engineering Lead
+  - Fine-tuning Engineer
+  threads_keywords:
+  - fine-tuning
+  - RAG
+  - vector DB
+  - Pinecone
+  - Weaviate
+  - ML platform
+  - LLM ops
+  - AI infrastructure
+  - embeddings
+  - data quality
+  linkedin_queries:
+  - ML Platform Engineer
+  - MLOps Engineer
+  - RAG Engineer
+  keywords:
   - openai
+  - anthropic
+  - claude
+  - gpt
+  - llm
+  - rag
+  - vector
+  - embedding
+  - pinecone
+  - weaviate
+  - chroma
+  - qdrant
+  - langchain
+  - llamaindex
+  - databricks
+  - snowflake
+  - dbt
+  - fivetran
+  - airbyte
+  - data warehouse
+  - data lake
+  - etl
+  - mlops
+  - ml platform
+  - data engineering
+  - dataops
+  - feature store
+  - model deployment
+  - ai infrastructure
+  - huggingface
+  - replicate
+  - weights and biases
+  - labelbox
+  - scale ai
+  - snorkel
+  - machine learning
+  - data science
+  - ai team
+  - model training
+  - fine-tuning
+  domain_overrides:
+  - openai.com
+  - anthropic.com
+  - huggingface.co
+  - pinecone.io
+  - weaviate.io
+  - chroma.ai
+  - qdrant.tech
+  - langchain.com
+  - llamaindex.ai
+  - databricks.com
+  - snowflake.com
+  - dbtlabs.com
+  - fivetran.com
+  - replicate.com
+  - scale.com
+  - weightsandbiases.com
+- id: 5
+  name: B2B SaaS
+  ats_titles:
+  - VP Product
+  - Head of Product
+  - Director of Product
+  - Head of Customer Success
+  - Expansion Manager
+  threads_keywords:
+  - usage-based pricing
+  - PLG
+  - expansion revenue
+  - self-serve
+  - EU expansion
+  - product-led
+  - ARR growth
+  - NRR
+  linkedin_queries:
+  - VP Product
+  - Head of Product
+  - Head of Customer Success
+  keywords:
+  - saas
+  - b2b
+  - product-led
+  - plg
+  - self-serve
+  - freemium
+  - expansion revenue
+  - nrr
+  - arr
+  - mrr
+  - churn
+  - retention
+  - ltv
+  - cac
+  - product-market fit
+  - usage-based pricing
   - stripe
-  - figma
   - linear
   - notion
-  - ramp
-  - plaid
-  - mercury
-  - vercel
-  - retool
   - airtable
   - webflow
   - zapier
-  - makeswift
+  - figma
   - loom
-  - fivetran
-  - mixpanel
-  - amplitude
-  - segment
-  - twilio
-  - okta
-  - cloudflare
+  - slack
+  - intercom
+  - zendesk
+  - freshdesk
+  - drift
+  - productboard
+  - aha
+  - pendo
+  - appcues
+  - userpilot
+  - customer success
+  - onboarding
+  - expansion manager
+  domain_overrides:
+  - stripe.com
+  - linear.app
+  - notion.so
+  - airtable.com
+  - webflow.com
+  - zapier.com
+  - figma.com
+  - loom.com
+  - slack.com
+  - intercom.com
+  - zendesk.com
+  - pendo.io
+  - productboard.com
+  - aha.io
+  - appcues.com
+  - userpilot.com
+- id: 6
+  name: IT Services / Integration
+  ats_titles:
+  - Outsource Dev Lead
+  - Platform Migration Engineer
+  - Tech Lead Rewrite
+  - MVP Engineer
+  - CTO
+  threads_keywords:
+  - outsource dev
+  - tech debt
+  - platform migration
+  - MVP build
+  - rewrite
+  - code audit
+  - fractional CTO
+  - engineering team
+  linkedin_queries:
+  - Platform Engineer
+  - Tech Lead
+  - Outsource Dev Lead
+  keywords:
+  - outsource
+  - offshore
+  - nearshoring
+  - fractional cto
+  - tech debt
+  - code modernization
+  - rewrite
+  - migration
+  - platform migration
+  - monolith
+  - microservices
+  - kubernetes
+  - devops
+  - sre
+  - infrastructure
+  - cloud migration
+  - aws
+  - gcp
+  - azure
+  - digital transformation
+  - system integrator
+  - consulting
+  - agency
+  - studio
+  - engineering team
+  - build vs buy
+  - mvp
+  domain_overrides:
+  - epam.com
+  - globallogic.com
+  - toptal.com
+  - upwork.com
+  - turing.com
+  - revelo.io
+  - codersrank.com
+- id: 7
+  name: Cloud / Infrastructure
+  ats_titles:
+  - CISO
+  - Head of Security
+  - Security Engineer
+  - FinOps Lead
+  - Cloud Cost Engineer
+  - SOC 2 Lead
+  threads_keywords:
+  - SOC 2
+  - CISO
+  - zero trust
+  - finops
+  - multi-cloud
+  - compliance deadline
+  - incident response
+  - data breach
+  linkedin_queries:
+  - CISO
+  - Head of Security
+  - FinOps Lead
+  keywords:
+  - cloud
+  - aws
+  - azure
+  - gcp
+  - kubernetes
+  - k8s
+  - docker
+  - terraform
+  - pulumi
+  - ansible
+  - jenkins
+  - github actions
+  - circleci
+  - argo
+  - helm
+  - istio
+  - envoy
+  - kong
   - datadog
-  - crowdstrike
-  - snowflake
+  - newrelic
+  - grafana
+  - prometheus
+  - pagerduty
+  - sentry
+  - cloudflare
+  - akamai
+  - fastly
+  - cdn
+  - security
+  - ciso
+  - soc 2
+  - iso 27001
+  - gdpr
+  - ccpa
+  - hipaa
+  - pci
+  - compliance
+  - zero trust
+  - siem
+  - soc
+  - edr
+  - vulnerability
+  - penetration testing
+  - finops
+  - cloud cost
+  - infrastructure as code
+  - observability
+  domain_overrides:
+  - aws.amazon.com
+  - cloud.google.com
+  - azure.microsoft.com
+  - cloudflare.com
+  - fastly.com
+  - akamai.com
+  - datadog.com
+  - newrelic.com
+  - grafana.com
+  - sentry.io
+  - pagerduty.com
+  - hashicorp.com
+  - terraform.io
+  - docker.com
+  - kubernetes.io
+  - crowdstrike.com
+  - okta.com
+  - auth0.com
+  - 1password.com
+  - vercel.com
+  - netlify.com
+  - render.com
+  - fly.io
+  - railway.app
+  - supabase.com
+  - planetscale.com
+- id: 8
+  name: FinTech / Payments
+  ats_titles:
+  - Compliance Lead
+  - KYC Engineer
+  - AML Engineer
+  - Treasury Lead
+  - PSP Integration Engineer
+  - BaaS Lead
+  threads_keywords:
+  - PCI
+  - KYC
+  - embedded finance
+  - BaaS
+  - PSP integration
+  - open banking
+  - stablecoin
+  - real-time payments
+  linkedin_queries:
+  - Compliance Lead
+  - KYC Engineer
+  - Treasury Lead
+  keywords:
+  - fintech
+  - payments
+  - stripe
+  - adyen
+  - braintree
+  - checkout.com
+  - paddle
+  - chargebee
+  - recurly
+  - 2c2p
+  - plaid
+  - mx
+  - finicity
+  - akoya
+  - wise
+  - remitly
+  - western union
+  - payoneer
+  - currencycloud
+  - embedded finance
+  - baas
+  - banking-as-a-service
+  - unit
+  - synctera
+  - treasury prime
+  - kyc
+  - aml
+  - bsa
+  - ofac
+  - compliance
+  - pci-dss
+  - psd2
+  - open banking
+  - stablecoin
+  - usdc
+  - crypto
+  - defi
+  - web3
+  - treasury
+  - fraud
+  - risk
+  - lending
+  - credit
+  - bnpl
+  - neobank
+  - chime
+  - mercury
+  - ramp
+  - brex
+  - navan
+  domain_overrides:
+  - stripe.com
+  - adyen.com
+  - checkout.com
+  - braintreepayments.com
+  - plaid.com
+  - wise.com
+  - remitly.com
+  - payoneer.com
+  - unit.co
+  - treasuryprime.com
+  - synctera.com
+  - chime.com
+  - mercury.com
+  - ramp.com
+  - brex.com
+  - navan.com
+  - coinbase.com
+  - kraken.com
+- id: 9
+  name: EdTech / LMS
+  ats_titles:
+  - Head of B2B Learning
+  - Corporate Learning Lead
+  - Cohort Product Manager
+  - LMS Migration Lead
+  threads_keywords:
+  - cohort-based
+  - corporate learning
+  - B2B training
+  - LMS migration
+  - MOOC
+  - online course
+  - creator economy
+  linkedin_queries:
+  - Head of B2B Learning
+  - Corporate Learning Lead
+  - Cohort Product Manager
+  keywords:
+  - edtech
+  - lms
+  - learning management
+  - coursera
+  - udemy
+  - udacity
+  - khan academy
+  - duolingo
+  - babbel
+  - rosetta stone
+  - skillshare
+  - masterclass
+  - pluralsight
+  - codecademy
+  - maven
+  - cohort-based
+  - circle
+  - teachable
+  - thinkific
+  - kajabi
+  - podia
+  - schoolmaker
+  - graphy
+  - corporate learning
+  - l&d
+  - training
+  - mooc
+  - online education
+  - creator
+  - course platform
+  domain_overrides:
+  - coursera.org
+  - udemy.com
+  - udacity.com
+  - khanacademy.org
+  - duolingo.com
+  - babbel.com
+  - skillshare.com
+  - masterclass.com
+  - pluralsight.com
+  - codecademy.com
+  - maven.co
+  - teachable.com
+  - thinkific.com
+  - kajabi.com
+- id: 10
+  name: Marketplace / E-commerce tech
+  ats_titles:
+  - Marketplace Operations Manager
+  - Seller Onboarding Lead
+  - Marketplace PM
+  - Trust and Safety Lead
+  - Two-sided PM
+  threads_keywords:
+  - marketplace
+  - two-sided
+  - onboarding sellers
+  - trust and safety
+  - expansion
+  - gig economy
+  - creator economy
+  - shopify app
+  keywords:
+  - marketplace
+  - two-sided
+  - etsy
+  - ebay
+  - amazon
+  - shopify
+  - walmart
+  - wayfair
+  - doordash
+  - uber
+  - lyft
+  - airbnb
+  - turo
+  - getaround
+  - fiverr
+  - upwork
+  - toptal
+  - thumbtack
+  - taskrabbit
+  - craigslist
+  - facebook marketplace
+  - offerup
+  - letgo
+  - stockx
+  - goat
+  - vinted
+  - poshmark
+  - depop
+  - mercari
+  - reverb
+  - discogs
+  - trust and safety
+  - seller onboarding
+  - creator economy
+  - creator marketplace
+  - gig economy
+  - shopify app
+  - woocommerce
+  - bigcommerce
+  - magento
+  - squarespace commerce
+  - wix commerce
+  domain_overrides:
+  - shopify.com
+  - etsy.com
+  - amazon.com
+  - ebay.com
+  - doordash.com
+  - uber.com
+  - lyft.com
+  - airbnb.com
+  - fiverr.com
+  - upwork.com
+  - thumbtack.com
+  - taskrabbit.com
+  - stockx.com
+  - goat.com
+  - vinted.com
+  - poshmark.com
+  - mercari.com
+  - bigcommerce.com
+  - squarespace.com
+  - wix.com
+ats_greenhouse_companies:
+- anthropic
+- openai
+- stripe
+- figma
+- linear
+- notion
+- ramp
+- plaid
+- mercury
+- vercel
+- retool
+- airtable
+- webflow
+- zapier
+- makeswift
+- loom
+- fivetran
+- mixpanel
+- amplitude
+- segment
+- twilio
+- okta
+- cloudflare
+- datadog
+- crowdstrike
+- snowflake
