@@ -12,9 +12,7 @@
 <body class="results">
   <nav class="top-nav">
     <div class="nav-inner">
-      <a href="/" class="brand">
-        <span class="brand-mark">◉</span> OutreachOS Signals
-      </a>
+      <a href="/" class="brand"><span class="brand-mark">◉</span> OutreachOS Signals</a>
       <div class="nav-links">
         <a href="/">Try another</a>
         <a href="/dashboard">Dashboard</a>
@@ -28,23 +26,24 @@
     <h1>5 leads for you</h1>
     <div class="url-shown">{{ url }}</div>
     {% if niche_name %}
-    <div class="niche-tag">Detected niche: {{ niche_name }} · confidence {{ niche_conf }}%</div>
+    <div class="niche-tag">Detected niche: {{ niche_name }} · {{ niche_conf }}% confidence</div>
     {% else %}
-    <div class="niche-tag" style="color:var(--warn); border-color:var(--warn);">Niche not detected — showing top signals from all categories</div>
+    <div class="niche-tag" style="color:var(--warn); border-color:var(--warn);">Niche not detected — showing top across all</div>
     {% endif %}
   </section>
 
   <div class="lead-list">
     {% for lead in leads %}
-    <div class="lead-card">
+    <div class="lead-card" data-domain="{{ lead.company_domain }}">
       <div>
-        <div class="lead-rank">#{{ loop.index }} · {{ lead.source }}</div>
-        <div class="lead-company">{{ lead.company_name or 'Unknown' }}</div>
+        <div class="lead-rank">#{{ loop.index }} · {{ lead.source }}{% if lead.niche_name and lead.niche_name != niche_name %} · {{ lead.niche_name }}{% endif %}</div>
+        <div class="lead-company">{{ lead.company_name }}</div>
+        <div class="lead-domain">{{ lead.company_domain }}</div>
         <div class="lead-text">{{ lead.text }}</div>
         <div class="lead-meta">
           <span class="source">{{ lead.source }}</span>
-          <span>{{ lead.age_days }}d old</span>
-          {% if lead.niche_name %}<span>{{ lead.niche_name }}</span>{% endif %}
+          <span>{{ lead.age_label }} ago</span>
+          {% if lead.has_contacts %}<span class="source" style="color:var(--good);">✓ {{ lead.contact_count }} contact{{ '' if lead.contact_count == 1 else 's' }} available</span>{% endif %}
         </div>
       </div>
       <div class="lead-score">
@@ -60,24 +59,47 @@
     {% endfor %}
 
     {% if not leads %}
-    <div class="lead-card" style="text-align:center;">
+    <div class="lead-card" style="text-align:center; padding:60px 24px;">
       <div>
-        <div class="lead-company">No leads yet for this niche</div>
-        <div class="lead-text">We're collecting fresh signals daily. Try another URL or check back tomorrow — pipeline grows ~100 leads/day.</div>
+        <div class="lead-company">No qualified leads in this niche yet</div>
+        <div class="lead-text">Our pipeline collects ~100 fresh signals/day. Try a different site or check back tomorrow.</div>
       </div>
     </div>
     {% endif %}
   </div>
 
-  <section class="cta-block">
+  {% if leads %}
+  <section class="cta-block" id="revealCta">
     <div class="cta-block-content">
-      <h2>Want all 50+ leads per month?</h2>
-      <p>Fresh signals daily · verified emails · ICP-matched · direct export to your CRM. $299/mo, cancel anytime.</p>
-      <form class="cta-email-row" action="/pricing" method="post">
-        <input type="email" name="email" placeholder="you@yoursite.com" required>
-        <button type="submit" class="cta-primary">Get full access</button>
+      <h2>🔒 Contacts are locked</h2>
+      <p>Enter your work email — get <strong>3 verified contacts free</strong>. No card. Then $299/mo for the full base.</p>
+      <form class="cta-email-row" id="revealForm">
+        <input type="email" name="email" id="emailInput" placeholder="you@yourcompany.com" required autocomplete="email">
+        <button type="submit" class="cta-primary" id="revealBtn">Reveal 3 contacts →</button>
       </form>
-      <div class="small">No card needed for 14-day trial · We never spam</div>
+      <div class="small" id="revealMsg" style="margin-top:12px;"></div>
+    </div>
+  </section>
+  {% endif %}
+
+  <section class="how" style="margin-top: 40px;">
+    <h2 class="how-title">What you get</h2>
+    <div class="how-grid">
+      <div class="how-card">
+        <div class="how-num">✓</div>
+        <h3>3 contacts free</h3>
+        <p>Verified emails + names + titles from our lead base for your niche</p>
+      </div>
+      <div class="how-card">
+        <div class="how-num">→</div>
+        <h3>50+ leads/month</h3>
+        <p>Full access: $299/mo, fresh daily, 10 B2B niches, cancel anytime</p>
+      </div>
+      <div class="how-card">
+        <div class="how-num">→</div>
+        <h3>CRM export</h3>
+        <p>XLSX + CSV + direct to HubSpot/Salesforce. White-label option on Agency plan</p>
+      </div>
     </div>
   </section>
 
@@ -89,5 +111,61 @@
       <a href="/api/signals">API</a>
     </div>
   </footer>
+
+  <script>
+  (function() {
+    const form = document.getElementById('revealForm');
+    if (!form) return;
+    const domains = {{ domains_json|safe }};
+    const nicheId = '{{ niche_id or "" }}';
+    form.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const btn = document.getElementById('revealBtn');
+      const msg = document.getElementById('revealMsg');
+      const email = document.getElementById('emailInput').value.trim();
+      if (!email) return;
+      btn.disabled = true; btn.textContent = 'Revealing…';
+      msg.textContent = ''; msg.style.color = 'var(--text-3)';
+      try {
+        const fd = new FormData();
+        fd.append('email', email);
+        fd.append('domains', JSON.stringify(domains));
+        fd.append('niche_id', nicheId);
+        const r = await fetch('/reveal', { method: 'POST', body: fd });
+        const d = await r.json();
+        if (!d.ok) {
+          msg.style.color = 'var(--bad)';
+          msg.textContent = '⚠ ' + (d.error || 'something went wrong');
+          btn.disabled = false; btn.textContent = 'Reveal 3 contacts →';
+          return;
+        }
+        // success — inject contacts into cards
+        const revealed = d.revealed || [];
+        revealed.forEach((item, i) => {
+          const card = document.querySelector('.lead-card[data-domain="' + item.domain + '"]');
+          if (!card) return;
+          const c = item.contact;
+          const div = document.createElement('div');
+          div.className = 'contact-box';
+          div.innerHTML = `
+            <div class="contact-name">👤 ${c.name || 'Contact'}</div>
+            <div class="contact-title">${c.title || ''}</div>
+            <a class="contact-email" href="mailto:${c.email}">${c.email}</a>
+          `;
+          card.appendChild(div);
+        });
+        // hide cta
+        const cta = document.getElementById('revealCta');
+        if (cta) cta.style.display = 'none';
+        msg.style.color = 'var(--good)';
+        msg.textContent = '✓ ' + revealed.length + ' contacts revealed! Check the cards above. To unlock the rest — see pricing below.';
+      } catch (err) {
+        msg.style.color = 'var(--bad)';
+        msg.textContent = '⚠ Network error: ' + err.message;
+        btn.disabled = false; btn.textContent = 'Reveal 3 contacts →';
+      }
+    });
+  })();
+  </script>
 </body>
 </html>
