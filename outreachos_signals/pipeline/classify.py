@@ -101,9 +101,13 @@ def call_openrouter(events: list[dict], model: str = None) -> list[dict]:
                 resp = json.loads(r.read())
             text = resp["choices"][0]["message"]["content"]
             text = text.strip()
-            if text.startswith("```"):
-                text = re.sub(r"^```(?:json)?\s*", "", text)
-                text = re.sub(r"\s*```$", "", text)
+            # Strip code fences (Gemini sometimes wraps in ```json ... ```)
+            text = re.sub(r"^```(?:json|JSON)?\s*", "", text)
+            text = re.sub(r"\s*```\s*$", "", text)
+            # Find first { to last } (handles prose around JSON)
+            m = re.search(r"\{.*\}", text, re.DOTALL)
+            if m:
+                text = m.group(0)
             parsed = json.loads(text)
             parsed["event_id"] = ev["event_id"]
             results.append(parsed)
@@ -112,6 +116,13 @@ def call_openrouter(events: list[dict], model: str = None) -> list[dict]:
             print(f"  [ERR {e.code}] event {ev.get('event_id', '?')[:8]}: {body_err}")
         except Exception as e:
             print(f"  [ERR] event {ev.get('event_id', '?')[:8]}: {e}")
+            # Debug: print first 200 chars of response
+            try:
+                with urllib.request.urlopen(req, timeout=60) as r:
+                    dbg = json.loads(r.read())["choices"][0]["message"]["content"]
+                print(f"         response head: {dbg[:200]!r}")
+            except Exception:
+                pass
         time.sleep(0.3)
     return results
 
