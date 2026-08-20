@@ -61,6 +61,24 @@ def normalize_domain(domain: str) -> str | None:
     return d
 
 
+
+
+def guess_company_domain(company_name: str, current_domain: str | None) -> str | None:
+    """If current_domain is generic (greenhouse.io, news.google.com etc), try guessing.
+    Returns the most likely corporate domain."""
+    # Bad domains to ignore
+    BAD = ("greenhouse.io", "lever.co", "news.google.", "google.com", "github.com",
+           "reddit.com", "ycombinator.com", "g2.com", "linkedin.com", "twitter.com",
+           "facebook.com", "hackernews", "techcrunch.com", "yahoo.com")
+    if current_domain and not any(current_domain.startswith(b) for b in BAD):
+        return current_domain
+    if not company_name:
+        return None
+    # Try common TLDs
+    name = company_name.lower().strip().replace(" ", "")
+    return f"{name}.com"
+
+
 def normalize_name(name: str) -> tuple[str, str, str] | None:
     """Parse 'John Smith' → (first, last, f). Returns None if can't parse."""
     if not name:
@@ -79,11 +97,19 @@ def normalize_name(name: str) -> tuple[str, str, str] | None:
 
 
 def get_mx_host(domain: str) -> str | None:
-    """Get MX host for domain via socket.getaddrinfo fallback (no dnspython dep).
-    Returns primary MX host or A record if no MX."""
-    # Try MX via /etc/hosts style; fallback: just use domain itself for SMTP
-    # Without dnspython, we just try the domain directly (most MTAs accept on A)
-    return domain
+    """Resolve MX via dnspython. Returns primary MX host or domain itself."""
+    try:
+        import dns.resolver
+        answers = dns.resolver.resolve(domain, "MX", lifetime=5)
+        hosts = sorted([(r.preference, str(r.exchange).rstrip(".")) for r in answers])
+        return hosts[0][1] if hosts else domain
+    except Exception:
+        try:
+            import dns.resolver
+            dns.resolver.resolve(domain, "A", lifetime=5)
+            return domain
+        except Exception:
+            return None
 
 
 @contextmanager
@@ -142,7 +168,9 @@ def generate_patterns(first: str, last: str, f: str, domain: str) -> list[tuple[
 def enrich_event(event: dict, niche_id: int, max_probes: int = 8) -> list[dict]:
     """For a single classified event, try to find buyer emails.
     Returns list of {role, name, email, status, source} dicts."""
-    domain = normalize_domain(event.get("company_domain", ""))
+    domain = normalize_domain(event.get("company_domain", "")) or guess_company_domain(
+        event.get("company_name", ""), event.get("company_domain", "")
+    )
     if not domain:
         return []
     # We need at least a name to brute-force. Check evidence_snippet, raw_text, raw_metadata.

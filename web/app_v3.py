@@ -158,21 +158,28 @@ def detect_niche(url: str) -> tuple[int | None, str | None, float, dict]:
     best = (None, None, 0.0)
     scores = []
     for nid, niche in NICHES.items():
-        # collect all keywords
+        # domain override: exact match wins
+        overrides = set(d.lower() for d in niche.get("domain_overrides", []))
+        if domain in overrides:
+            return nid, niche["name"], 1.0, {"domain": domain, "override": True}
+
+        # collect all keywords (DO NOT include niche name tokens — too noisy)
         kw = set()
+        kw |= set(k.lower() for k in niche.get("keywords", []))
         kw |= set(k.lower() for k in niche.get("ats_titles", []))
         kw |= set(k.lower() for k in niche.get("threads_keywords", []))
         kw |= set(k.lower() for k in niche.get("linkedin_queries", []))
-        # also tokens from niche name
-        kw |= set(re.findall(r"[a-z]+", niche.get("name", "").lower()))
 
         if not kw:
             continue
-        # count hits
-        hits = sum(1 for k in kw if k in text)
+        # count hits, weight longer matches more
+        hits = 0
+        for k in kw:
+            if k in text:
+                hits += 1 + (len(k) > 8)  # bonus for long specific keywords
         if hits == 0:
             continue
-        score = min(1.0, hits / 4.0)  # 4 hits = 100% confidence
+        score = min(1.0, hits / 3.0)  # 3 hits = 100% confidence
         scores.append((nid, niche["name"], score, hits))
         if score > best[2]:
             best = (nid, niche["name"], score)

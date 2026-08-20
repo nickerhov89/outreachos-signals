@@ -1,3 +1,4 @@
+import urllib.request
 """Apify Threads collector.
 Actor: search-threads-by-keywords (Apify Store).
 Default actor ID: dsRqXOFKRiJxRtskL — override via APIFY_ACTOR_THREADS env."""
@@ -23,11 +24,11 @@ def run_actor(actor_id: str, run_input: dict) -> str:
         raise RuntimeError("APIFY_TOKEN not set in .env")
     url = f"{APIFY_BASE}/acts/{actor_id}/runs?token={token}"
     body = json.dumps(run_input).encode()
-    req = __import__("urllib.request").request.Request(
+    req = urllib.request.Request(
         url, data=body, method="POST",
         headers={"Content-Type": "application/json"},
     )
-    with __import__("urllib.request").urlopen(req, timeout=60) as r:
+    with urllib.request.urlopen(req, timeout=60) as r:
         data = json.loads(r.read())
     return data["data"]["id"]
 
@@ -37,7 +38,7 @@ def wait_run(actor_id: str, run_id: str, max_wait: int = 300) -> dict:
     url = f"{APIFY_BASE}/acts/{actor_id}/runs/{run_id}?token={token}"
     start = time.time()
     while time.time() - start < max_wait:
-        with __import__("urllib.request").urlopen(url, timeout=30) as r:
+        with urllib.request.urlopen(url, timeout=30) as r:
             data = json.loads(r.read())
         status = data["data"]["status"]
         if status in ("SUCCEEDED", "FAILED", "ABORTED", "TIMED-OUT"):
@@ -50,7 +51,7 @@ def get_dataset_items(actor_id: str, run_id: str) -> list[dict]:
     token = _get_token()
     dataset_id = None
     # fetch run to get datasetId
-    with __import__("urllib.request").urlopen(
+    with urllib.request.urlopen(
         f"{APIFY_BASE}/acts/{actor_id}/runs/{run_id}?token={token}", timeout=30
     ) as r:
         d = json.loads(r.read())
@@ -59,7 +60,7 @@ def get_dataset_items(actor_id: str, run_id: str) -> list[dict]:
     offset = 0
     while True:
         url = f"{APIFY_BASE}/datasets/{dataset_id}/items?token={token}&offset={offset}&limit=100"
-        with __import__("urllib.request").urlopen(url, timeout=60) as r:
+        with urllib.request.urlopen(url, timeout=60) as r:
             batch = json.loads(r.read())
         items.extend(batch)
         if len(batch) < 100:
