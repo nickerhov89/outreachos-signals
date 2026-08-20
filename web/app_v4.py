@@ -112,6 +112,104 @@ BAD_DOMAINS = {
 }
 
 
+
+
+# ============================================================
+# Apollo.io helpers (verified corporate emails, 1 credit/reveal)
+# ============================================================
+APOLLO_KEY = os.getenv("APOLLO_API_KEY", "")
+APOLLO_BASE = "https://api.apollo.io/v1"
+
+# Daily cap: 30 reveals/day = $0.15-1.50 depending on plan
+APOLLO_DAILY_CAP = int(os.getenv("APOLLO_DAILY_CAP", "30"))
+
+# C-suite / VP titles for ICP match
+APOLLO_BUYER_TITLES = [
+    "founder", "co-founder", "ceo", "chief", "head of", "vp", "vice president",
+    "director", "cmo", "cfo", "coo", "cro", "chief revenue", "revenue officer",
+    "head of marketing", "head of sales", "head of growth", "head of partnerships",
+    "vp sales", "vp marketing", "vp growth", "vp engineering",
+    "marketing", "growth", "sales", "partnerships", "revenue", "demand gen",
+    "business development", "bd", "devrel", "developer relations",
+]
+
+
+def _apollo_used_today() -> int:
+    """Count Apollo reveals logged in lead_views today."""
+    try:
+        with sqlite3.connect(str(DB_PATH)) as conn:
+            row = conn.execute("""
+                select count(*) from lead_views
+                where user_agent like '%%apollo%%' and created_at > datetime('now', '-1 day')
+            """).fetchone()
+            return row[0] if row else 0
+    except Exception:
+        return 0
+
+
+def _apollo_post(path: str, data: dict) -> dict | None:
+    if not APOLLO_KEY:
+        return None
+    body = json.dumps(data).encode()
+    req = urllib.request.Request(
+        f"{APOLLO_BASE}{path}",
+        data=body,
+        headers={"X-Api-Key": APOLLO_KEY, "Content-Type": "application/json"},
+    )
+    try:
+        with urllib.request.urlopen(req, timeout=20) as r:
+            return json.loads(r.read())
+    except Exception as ex:
+        print(f"  [APOLLO ERR] {path}: {ex}", flush=True)
+        return None
+
+
+def apollo_top_buyer(domain: str) -> dict | None:
+    """Search Apollo for a top buyer at the domain and reveal their email (1 credit)."""
+    if not APOLLO_KEY:
+        return None
+    if _apollo_used_today() >= APOLLO_DAILY_CAP:
+        return None
+    # 1. search top person
+    s = _apollo_post("/mixed_people/api_search", {
+        "q_organization_domains": domain,
+        "person_titles": [
+            "Founder", "Co-Founder", "CEO", "Chief Executive Officer",
+            "Chief Revenue Officer", "CRO", "Chief Marketing Officer", "CMO",
+            "Chief Financial Officer", "CFO", "Chief Operating Officer", "COO",
+            "Head of Sales", "VP Sales", "Head of Marketing", "VP Marketing",
+            "Head of Growth", "VP Growth", "Head of Partnerships", "VP Partnerships",
+            "Head of Business Development", "VP Business Development",
+        ],
+        "page": 1, "per_page": 1,
+    })
+    if not s or not s.get("people"):
+        return None
+    pid = s["people"][0].get("id")
+    if not pid:
+        return None
+    # 2. reveal (costs 1 credit)
+    r = _apollo_post("/people/match", {"id": pid})
+    if not r or not r.get("person"):
+        return None
+    p = r["person"]
+    em = p.get("email")
+    if not em or "@" not in em:
+        return None
+    return {
+        "name": p.get("name") or "",
+        "email": em,
+        "email_status": p.get("email_status") or "",
+        "title": p.get("title") or "",
+        "level": p.get("seniority") or "",
+        "linkedin": p.get("linkedin_url") or "",
+        "city": p.get("city") or "",
+        "functions": p.get("functions") or [],
+        "source": "apollo",
+    }
+
+
+
 def is_valid_email(email: str) -> tuple[bool, str]:
     """Check if email is valid + not disposable. Returns (ok, reason)."""
     email = (email or "").strip().lower()
@@ -507,7 +605,9 @@ async def reveal(request: Request, email: str = Form(...), domains: str = Form(.
     with db() as conn:
         for d in doms[:3]:
             contact_obj = None
-            # 4a. try DB cache
+            company_name = None
+            cached_contacts = []
+            # 4a. DB cache
             row = conn.execute("""
                 SELECT e.company_name, e.company_domain, c.buyer_contacts_json
                 FROM signal_events e
@@ -517,8 +617,6 @@ async def reveal(request: Request, email: str = Form(...), domains: str = Form(.
                 ORDER BY c.score DESC
                 LIMIT 1
             """, (d,)).fetchone()
-            company_name = None
-            cached_contacts = []
             if row:
                 company_name = row["company_name"]
                 try:
@@ -536,16 +634,27 @@ async def reveal(request: Request, email: str = Form(...), domains: str = Form(.
                             })
                 except Exception:
                     pass
-            # 4b. Outscraper live (overrides if returns more)
+            # 4b. APOLLO LIVE (primary, verified corporate, 1 credit)
+            apollo_contact = apollo_top_buyer(d)
+            # 4c. Outscraper live (fallback)
             live_contacts = _outscraper_contacts(d, per_company=6)
-            # 4c. pick best
-            all_contacts = cached_contacts + live_contacts
-            ranked = _rank_contacts(all_contacts)
+            # 4d. pick best: prefer verified corporate with buyer title
+            all_contacts = cached_contacts + ([apollo_contact] if apollo_contact else []) + live_contacts
+            # dedupe by email
+            seen_emails = set()
+            unique = []
+            for c in all_contacts:
+                em = c.get("email", "")
+                if not em or em in seen_emails:
+                    continue
+                seen_emails.add(em)
+                unique.append(c)
+            ranked = _rank_contacts(unique)
             if ranked:
                 contact_obj = ranked[0]
-                # persist the live result back to DB so next reveal is cached
-                if live_contacts:
-                    payload = json.dumps({"contacts": live_contacts, "source": "outscraper_live", "fetched_at": time.time()})
+                # persist Apollo result to DB so next reveal is free
+                if apollo_contact and apollo_contact.get("email"):
+                    payload = json.dumps({"contacts": [apollo_contact], "source": "apollo", "fetched_at": time.time()})
                     conn.execute("""
                         UPDATE signal_classifications
                         SET buyer_contacts_json = ?
