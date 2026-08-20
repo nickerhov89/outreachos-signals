@@ -1,0 +1,8 @@
+[Unit]
+Description=OutreachOS Signals — nightly backup of signals.db
+
+[Service]
+Type=oneshot
+WorkingDirectory=/home/manager/outreachos-signals
+ExecStart=/bin/bash -c 'mkdir -p data/backups && cp data/signals.db data/backups/signals-$(date +\%F).db && find data/backups/ -name "*.db" -mtime +14 -delete'
+StandardOutput=append:/home/manager/outreachos-signals/logs/backup.log

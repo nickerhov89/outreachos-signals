@@ -1,11 +1,12 @@
 [Unit]
-Description=OutreachOS Signals — ATS collector (kalil0321)
+Description=OutreachOS Signals — ATS collector (Greenhouse + Lever)
 After=network-online.target
 
 [Service]
 Type=oneshot
 WorkingDirectory=/home/manager/outreachos-signals
 EnvironmentFile=/home/manager/outreachos-signals/.env
-ExecStart=/home/manager/work/venv/bin/python -m collectors.ats_kalil
+ExecStart=/usr/bin/python3 -m outreachos_signals.collectors.ats_greenhouse
+ExecStartPost=/usr/bin/python3 -m outreachos_signals.collectors.ats_lever
 StandardOutput=append:/home/manager/outreachos-signals/logs/ats.log
 StandardError=append:/home/manager/outreachos-signals/logs/ats.err

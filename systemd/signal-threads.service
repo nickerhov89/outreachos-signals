@@ -1,0 +1,11 @@
+[Unit]
+Description=OutreachOS Signals — Apify Threads collector
+After=network-online.target
+
+[Service]
+Type=oneshot
+WorkingDirectory=/home/manager/outreachos-signals
+EnvironmentFile=/home/manager/outreachos-signals/.env
+ExecStart=/usr/bin/python3 -m outreachos_signals.collectors.apify_threads
+StandardOutput=append:/home/manager/outreachos-signals/logs/threads.log
+StandardError=append:/home/manager/outreachos-signals/logs/threads.err

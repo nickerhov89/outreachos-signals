@@ -1,0 +1,111 @@
+niches:
+  - id: 1
+    name: "CRM / BPM / Automation"
+    ats_titles: ["VP Sales", "VP RevOps", "Head of Sales Operations", "Director of Revenue Operations", "Head of GTM", "GTM Engineer"]
+    threads_keywords: ["new CRO", "RevOps", "HubSpot migration", "Salesforce migration", "GTM engineering"]
+    linkedin_queries: ["VP Sales", "VP RevOps", "Head of Sales Operations"]
+  - id: 2
+    name: "HRTech / Recruitment"
+    ats_titles: ["Head of People", "Head of Talent", "VP People", "Director of Talent Acquisition", "Head of Recruiting", "Talent Acquisition Lead"]
+    threads_keywords: ["hiring 5 SDRs", "first recruiter", "Talent Acquisition", "Head of People"]
+    linkedin_queries: ["Head of People", "Head of Talent", "VP People"]
+  - id: 3
+    name: "MarTech / Analytics"
+    ats_titles: ["Demand Gen Manager", "Growth Marketing Lead", "Director of Marketing Operations", "Head of Growth", "MMM Lead", "Attribution Lead"]
+    threads_keywords: ["demand gen", "marketing mix modeling", "MMM", "attribution", "stack consolidation"]
+    linkedin_queries: ["Demand Gen Manager", "Director of Marketing Operations", "Head of Growth"]
+  - id: 4
+    name: "AI / Data"
+    ats_titles: ["ML Platform Engineer", "MLOps Engineer", "Vector DB Engineer", "RAG Engineer", "Data Engineering Lead", "Fine-tuning Engineer"]
+    threads_keywords: ["fine-tuning", "RAG", "vector DB", "Pinecone", "Weaviate", "ML platform"]
+    linkedin_queries: ["ML Platform Engineer", "MLOps Engineer", "RAG Engineer"]
+  - id: 5
+    name: "B2B SaaS"
+    ats_titles: ["VP Product", "Head of Product", "Director of Product", "Head of Customer Success", "Expansion Manager"]
+    threads_keywords: ["usage-based pricing", "PLG", "expansion revenue", "self-serve", "EU expansion"]
+    linkedin_queries: ["VP Product", "Head of Product", "Head of Customer Success"]
+  - id: 6
+    name: "IT Services / Integration"
+    ats_titles: ["Outsource Dev Lead", "Platform Migration Engineer", "Tech Lead Rewrite", "MVP Engineer", "CTO"]
+    threads_keywords: ["outsource dev", "tech debt", "platform migration", "MVP build", "rewrite"]
+    linkedin_queries: ["Platform Engineer", "Tech Lead", "Outsource Dev Lead"]
+  - id: 7
+    name: "Cloud / Infrastructure"
+    ats_titles: ["CISO", "Head of Security", "Security Engineer", "FinOps Lead", "Cloud Cost Engineer", "SOC 2 Lead"]
+    threads_keywords: ["SOC 2", "CISO", "zero trust", "finops", "multi-cloud", "compliance deadline"]
+    linkedin_queries: ["CISO", "Head of Security", "FinOps Lead"]
+  - id: 8
+    name: "FinTech / Payments"
+    ats_titles: ["Compliance Lead", "KYC Engineer", "AML Engineer", "Treasury Lead", "PSP Integration Engineer", "BaaS Lead"]
+    threads_keywords: ["PCI", "KYC", "embedded finance", "BaaS", "PSP integration"]
+    linkedin_queries: ["Compliance Lead", "KYC Engineer", "Treasury Lead"]
+  - id: 9
+    name: "EdTech / LMS"
+    ats_titles: ["Head of B2B Learning", "Corporate Learning Lead", "Cohort Product Manager", "LMS Migration Lead"]
+    threads_keywords: ["cohort-based", "corporate learning", "B2B training", "LMS migration", "MOOC"]
+    linkedin_queries: ["Head of B2B Learning", "Corporate Learning Lead", "Cohort Product Manager"]
+  - id: 10
+    name: "Marketplace / E-commerce tech"
+    ats_titles: ["Marketplace Operations Manager", "Seller Onboarding Lead", "Marketplace PM", "Trust and Safety Lead", "Two-sided PM"]
+    threads_keywords: ["marketplace", "two-sided", "onboarding sellers", "trust and safety", "expansion"]
+    linkedin_queries: ["Marketplace Operations Manager", "Seller Onboarding Lead", "Marketplace PM"]
+
+ats_greenhouse_companies:
+  - anthropic
+  - openai
+  - stripe
+  - figma
+  - linear
+  - notion
+  - ramp
+  - plaid
+  - mercury
+  - vercel
+  - retool
+  - airtable
+  - webflow
+  - zapier
+  - makeswift
+  - loom
+  - fivetran
+  - mixpanel
+  - amplitude
+  - segment
+  - twilio
+  - okta
+  - cloudflare
+  - datadog
+  - crowdstrike
+  - snowflake
+  - databricks
+  - pinecone
+  - weaviate
+  - langchain
+  - huggingface
+  - replicate
+  - runway
+  - cursor
+  - perplexity
+  - replit
+  - posthog
+  - supabase
+  - planetscale
+  - hasura
+  - clickhouse
+
+ats_lever_companies:
+  - netflix
+  - lyft
+  - vmware
+  - paloaltonetworks
+  - intuit
+  - servicenow
+  - square
+  - dropbox
+  - atlassian
+  - canva
+  - doordash
+  - pinterest
+  - roblox
+  - spotify
+  - uber

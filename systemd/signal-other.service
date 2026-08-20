@@ -1,0 +1,12 @@
+[Unit]
+Description=OutreachOS Signals — Funding + GitHub collectors
+After=network-online.target
+
+[Service]
+Type=oneshot
+WorkingDirectory=/home/manager/outreachos-signals
+EnvironmentFile=/home/manager/outreachos-signals/.env
+ExecStart=/usr/bin/python3 -m outreachos_signals.collectors.funding_news
+ExecStartPost=/usr/bin/python3 -m outreachos_signals.collectors.github_commits
+StandardOutput=append:/home/manager/outreachos-signals/logs/other.log
+StandardError=append:/home/manager/outreachos-signals/logs/other.err

@@ -1,0 +1,10 @@
+[Unit]
+Description=Run signal-classify daily at 05:30 UTC (after collectors)
+
+[Timer]
+OnCalendar=*-*-* 05:30:00 UTC
+Persistent=true
+Unit=signal-classify.service
+
+[Install]
+WantedBy=timers.target

@@ -1,0 +1,10 @@
+[Unit]
+Description=Run signal-threads daily at 04:30 UTC
+
+[Timer]
+OnCalendar=*-*-* 04:30:00 UTC
+Persistent=true
+Unit=signal-threads.service
+
+[Install]
+WantedBy=timers.target

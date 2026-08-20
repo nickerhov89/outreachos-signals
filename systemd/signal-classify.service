@@ -1,0 +1,11 @@
+[Unit]
+Description=OutreachOS Signals — Claude classifier
+After=network-online.target
+
+[Service]
+Type=oneshot
+WorkingDirectory=/home/manager/outreachos-signals
+EnvironmentFile=/home/manager/outreachos-signals/.env
+ExecStart=/usr/bin/python3 -m outreachos_signals.pipeline.classify
+StandardOutput=append:/home/manager/outreachos-signals/logs/classify.log
+StandardError=append:/home/manager/outreachos-signals/logs/classify.err
