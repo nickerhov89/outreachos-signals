@@ -1,0 +1,11 @@
+[Unit]
+Description=OutreachOS Signals — ATS collector (kalil0321)
+After=network-online.target
+
+[Service]
+Type=oneshot
+WorkingDirectory=/home/manager/outreachos-signals
+EnvironmentFile=/home/manager/outreachos-signals/.env
+ExecStart=/home/manager/work/venv/bin/python -m collectors.ats_kalil
+StandardOutput=append:/home/manager/outreachos-signals/logs/ats.log
+StandardError=append:/home/manager/outreachos-signals/logs/ats.err

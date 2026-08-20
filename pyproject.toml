@@ -1,0 +1,23 @@
+[project]
+name = "outreachos-signals"
+version = "0.1.0"
+description = "Signal-as-a-Service for B2B outbound"
+requires-python = ">=3.11"
+dependencies = [
+  "psycopg[binary]>=3.1",
+  "requests>=2.31",
+  "python-dotenv>=1.0",
+  "google-generativeai>=0.5",
+  "openpyxl>=3.1",
+  "pyyaml>=6.0",
+  "apscheduler>=3.10",
+  "tenacity>=8.2",
+  "pydantic>=2.6",
+]
+
+[project.optional-dependencies]
+dev = ["pytest>=8.0", "ruff>=0.3", "mypy>=1.8"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py311"
