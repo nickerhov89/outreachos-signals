@@ -46,3 +46,9 @@ exports/
 *.xlsx
 *.csv
 !docs/**/*.csv
+
+# SQLite database (локально, не в гите)
+data/*.db
+data/*.db-wal
+data/*.db-shm
+data/backups/
