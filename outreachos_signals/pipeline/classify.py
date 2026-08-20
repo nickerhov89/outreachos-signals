@@ -1,19 +1,20 @@
 """OpenRouter-backed classifier — 5-dim scoring + first_angle + case_match.
-Uses Gemini 2.0 Flash via OpenRouter (compatible with OpenAI API).
-Reads unclassified events from signal_events, writes to signal_classifications."""
+Uses Gemini 3.5 Flash via OpenRouter (compatible with OpenAI API).
+Reads unclassified events from signal_events, writes to signal_classifications.
+PARALLEL: uses ThreadPoolExecutor for 3x faster batch processing."""
 import json
 import os
 import re
 import time
 import urllib.error
 import urllib.request
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from pathlib import Path
 
 from ..db import ENV, conn, now_iso
 
 OPENROUTER_URL = "https://openrouter.ai/api/v1/chat/completions"
-DEFAULT_MODEL = "google/gemini-2.0-flash-001"
-# Alternatives: "google/gemini-2.0-flash-exp:free", "anthropic/claude-3.5-haiku", "openai/gpt-4o-mini"
+DEFAULT_MODEL = "google/gemini-3.5-flash"
 
 NICHES_DESC = [
     {"id": 1, "name": "CRM / BPM / Automation", "icp": "B2B SaaS 50-500 emp, US/EU, sales-led"},
@@ -58,72 +59,69 @@ Niches available:
 Return JSON only."""
 
 
-def call_openrouter(events: list[dict], model: str = None) -> list[dict]:
-    """Call OpenRouter with batch of events, return list of classifications."""
+def _call_one(ev: dict, niches_text: str, api_key: str, model: str) -> dict | None:
+    """Single event API call. Returns parsed dict or None on error."""
+    user_msg = USER_PROMPT_TEMPLATE.format(
+        source=ev.get("source", "?"),
+        company=ev.get("company_name") or ev.get("company_domain", "?"),
+        event_date=ev.get("event_date") or "unknown",
+        raw_text=(ev.get("raw_text") or "")[:400],
+        evidence_snippet=(ev.get("evidence_snippet") or "")[:300],
+        evidence_url=ev.get("evidence_url") or "",
+        niches_list=niches_text,
+    )
+    body = json.dumps({
+        "model": model,
+        "max_tokens": 2000,
+        "temperature": 0.2,
+        "response_format": {"type": "json_object"},
+        "messages": [
+            {"role": "system", "content": SYSTEM_PROMPT},
+            {"role": "user", "content": user_msg},
+        ],
+    }).encode()
+    req = urllib.request.Request(
+        OPENROUTER_URL, data=body, method="POST",
+        headers={
+            "Authorization": f"Bearer {api_key}",
+            "Content-Type": "application/json",
+            "HTTP-Referer": "https://outreachos.pro",
+            "X-Title": "OutreachOS Signals",
+        },
+    )
+    try:
+        with urllib.request.urlopen(req, timeout=60) as r:
+            resp = json.loads(r.read())
+        text = resp["choices"][0]["message"]["content"]
+        text = text.strip()
+        text = re.sub(r"^```(?:json|JSON)?\s*", "", text)
+        text = re.sub(r"\s*```\s*$", "", text)
+        m = re.search(r"\{.*\}", text, re.DOTALL)
+        if m:
+            text = m.group(0)
+        parsed = json.loads(text)
+        parsed["event_id"] = ev["event_id"]
+        return parsed
+    except Exception as e:
+        print(f"  [ERR] event {ev.get('event_id', '?')[:8]}: {e}")
+        return None
+
+
+def call_openrouter(events: list[dict], model: str = None, workers: int = 3) -> list[dict]:
+    """Call OpenRouter for events in parallel (default 3 workers)."""
     api_key = ENV.get("OPENROUTER_API_KEY", "")
     if not api_key:
         raise RuntimeError("OPENROUTER_API_KEY not in .env")
     model = model or ENV.get("CLASSIFIER_MODEL", DEFAULT_MODEL)
-
     niches_text = "\n".join(f"{n['id']}. {n['name']} — {n['icp']}" for n in NICHES_DESC)
+
     results = []
-    for ev in events:
-        user_msg = USER_PROMPT_TEMPLATE.format(
-            source=ev.get("source", "?"),
-            company=ev.get("company_name") or ev.get("company_domain", "?"),
-            event_date=ev.get("event_date") or "unknown",
-            raw_text=(ev.get("raw_text") or "")[:400],
-            evidence_snippet=(ev.get("evidence_snippet") or "")[:300],
-            evidence_url=ev.get("evidence_url") or "",
-            niches_list=niches_text,
-        )
-        body = json.dumps({
-            "model": model,
-            "max_tokens": 2000,
-            "temperature": 0.2,
-            "response_format": {"type": "json_object"},
-            "messages": [
-                {"role": "system", "content": SYSTEM_PROMPT},
-                {"role": "user", "content": user_msg},
-            ],
-        }).encode()
-        req = urllib.request.Request(
-            OPENROUTER_URL, data=body, method="POST",
-            headers={
-                "Authorization": f"Bearer {api_key}",
-                "Content-Type": "application/json",
-                "HTTP-Referer": "https://outreachos.pro",  # required by OpenRouter
-                "X-Title": "OutreachOS Signals",
-            },
-        )
-        try:
-            with urllib.request.urlopen(req, timeout=60) as r:
-                resp = json.loads(r.read())
-            text = resp["choices"][0]["message"]["content"]
-            text = text.strip()
-            # Strip code fences (Gemini sometimes wraps in ```json ... ```)
-            text = re.sub(r"^```(?:json|JSON)?\s*", "", text)
-            text = re.sub(r"\s*```\s*$", "", text)
-            # Find first { to last } (handles prose around JSON)
-            m = re.search(r"\{.*\}", text, re.DOTALL)
-            if m:
-                text = m.group(0)
-            parsed = json.loads(text)
-            parsed["event_id"] = ev["event_id"]
-            results.append(parsed)
-        except urllib.error.HTTPError as e:
-            body_err = e.read().decode("utf-8", errors="ignore")[:200] if e.fp else ""
-            print(f"  [ERR {e.code}] event {ev.get('event_id', '?')[:8]}: {body_err}")
-        except Exception as e:
-            print(f"  [ERR] event {ev.get('event_id', '?')[:8]}: {e}")
-            # Debug: print first 200 chars of response
-            try:
-                with urllib.request.urlopen(req, timeout=60) as r:
-                    dbg = json.loads(r.read())["choices"][0]["message"]["content"]
-                print(f"         response head: {dbg[:200]!r}")
-            except Exception:
-                pass
-        time.sleep(0.3)
+    with ThreadPoolExecutor(max_workers=workers) as ex:
+        futures = {ex.submit(_call_one, ev, niches_text, api_key, model): ev for ev in events}
+        for fut in as_completed(futures):
+            r = fut.result()
+            if r:
+                results.append(r)
     return results
 
 
@@ -186,16 +184,19 @@ def save_classifications(classifications: list[dict], model_version: str) -> int
     return saved
 
 
-def main(batch: int = 20):
-    print(f"Classify: fetching up to {batch} unclassified events")
+def main(batch: int = 50, workers: int = 3):
+    t0 = time.time()
+    print(f"Classify: fetching up to {batch} unclassified events (workers={workers})")
     events = fetch_unclassified(limit=batch)
     if not events:
         print("  no unclassified events")
         return
-    print(f"  fetched {len(events)}, calling {ENV.get('CLASSIFIER_MODEL', DEFAULT_MODEL)}…")
-    classifications = call_openrouter(events)
+    print(f"  fetched {len(events)}, calling {ENV.get('CLASSIFIER_MODEL', DEFAULT_MODEL)} in parallel…")
+    classifications = call_openrouter(events, workers=workers)
     saved = save_classifications(classifications, ENV.get("CLASSIFIER_MODEL", DEFAULT_MODEL))
-    print(f"  classified={len(classifications)} saved={saved}")
+    elapsed = time.time() - t0
+    rate = len(classifications) / max(elapsed, 0.1)
+    print(f"  classified={len(classifications)} saved={saved} time={elapsed:.1f}s rate={rate:.1f}/s")
 
 
 if __name__ == "__main__":
