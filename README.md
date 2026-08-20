@@ -22,13 +22,15 @@ See `docs/signal_finder_top10_2026-08-20.md` for full design.
 - `docs/`     — design specs, runbooks
 
 ## Quick start
-    cp .env.example .env  &&  # fill in real keys
-    bash scripts/migrate.sh
+    cp .env.example .env         # fill in real API keys
+    python3 -m venv .venv && source .venv/bin/activate
+    pip install -e .
+    python3 scripts/migrate.py   # creates data/signals.db with 4 tables
     systemctl --user daemon-reload
     systemctl --user enable --now signal-ats.timer
-    systemctl --user list-timers  # see schedule
 
 ## Servers
-- App root: `manager@144.31.54.166` (this box)
-- DB:      `139.60.162.12:35434` (polza-portal.ru, sslmode=disable)
-- Web UI:  polza-portal.ru/signals (route in existing Next.js)
+- App root: `manager@144.31.54.166` (this box) — Signal Finder lives here
+- DB:      SQLite at `data/signals.db` on same box (no external DB)
+- Web UI:  separate Next.js on `outreachos.pro/signals` (TBD) OR polza-portal.ru reads same SQLite file
+- Portal DB: 139.60.162.12:35434 (polza-portal.ru) — we only READ it, never write

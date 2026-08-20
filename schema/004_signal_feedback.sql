@@ -1,13 +1,13 @@
 -- signal_feedback: per-client actions (sent/opened/replied/meeting/won/lost)
 CREATE TABLE IF NOT EXISTS signal_feedback (
-  feedback_id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  client_id UUID,
-  client_name TEXT,                     -- human-readable
+  feedback_id TEXT PRIMARY KEY,          -- uuid.uuid4()
+  client_id TEXT,
+  client_name TEXT,
   play_id TEXT REFERENCES signal_plays(play_id),
   company_domain TEXT NOT NULL,
   event_type TEXT,
-  action TEXT NOT NULL,                 -- "sent" | "opened" | "replied" | "meeting" | "won" | "lost" | "bounced"
-  action_at TIMESTAMPTZ DEFAULT NOW(),
+  action TEXT NOT NULL,                  -- sent | opened | replied | meeting | won | lost | bounced
+  action_at TEXT NOT NULL DEFAULT (CURRENT_TIMESTAMP),
   notes TEXT
 );
 CREATE INDEX IF NOT EXISTS idx_feedback_play
