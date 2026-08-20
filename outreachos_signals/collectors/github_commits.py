@@ -56,9 +56,30 @@ def _is_relevant(commit_msg: str) -> bool:
     return any(k in msg_l for k in TECH_KEYWORDS)
 
 
+# Known org → real domain (for top 100 OSS orgs; fallback to org.io/.com guess)
+ORG_DOMAINS = {
+    "vercel": "vercel.com", "prisma": "prisma.io", "supabase": "supabase.com",
+    "openai": "openai.com", "anthropic": "anthropic.com", "vercel-labs": "vercel.com",
+    "triggerdotdev": "trigger.dev", "appwrite": "appwrite.io", "nocodb": "nocodb.com",
+    "n8n-io": "n8n.io", "formbricks": "formbricks.com", "remix-run": "remix.run",
+    "stripe": "stripe.com", "linear": "linear.app", "notion": "notion.so",
+    "figma": "figma.com", "slack": "slack.com", "datadog": "datadog.com",
+    "cloudflare": "cloudflare.com", "snowflake": "snowflake.com",
+}
+
 def _extract_org_domain(repo_full: str) -> str:
-    """Get the GitHub org as a stand-in for company_domain (we dedupe on commit sha, not domain)."""
-    return f"github.com/{repo_full.split('/')[0]}"
+    """Try to get real company domain. Fall back to org.com/.io guess."""
+    org = repo_full.split("/")[0]
+    if org in ORG_DOMAINS:
+        return ORG_DOMAINS[org]
+    # guess: try .io, .com, .dev, .app in order via DNS check
+    for tld in [".io", ".com", ".dev", ".app", ".co"]:
+        candidate = f"{org}{tld}"
+        # We can't DNS-check here (sync), so try the most common first
+        # Outscraper will 404 for bad domains — that's fine, we just spend 1 credit
+        if tld == ".io":  # OSS projects love .io
+            return candidate
+    return f"{org}.com"
 
 
 def collect(repos: list[str] = None, since_days: int = 7) -> dict:
