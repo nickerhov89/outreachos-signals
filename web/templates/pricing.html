@@ -1,0 +1,101 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Pricing · OutreachOS Signals</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <link href="/static/style.css" rel="stylesheet">
+</head>
+<body class="landing">
+  <nav class="top-nav">
+    <div class="nav-inner">
+      <a href="/" class="brand">
+        <span class="brand-mark">◉</span> OutreachOS Signals
+      </a>
+      <div class="nav-links">
+        <a href="/">Home</a>
+        <a href="/dashboard">Dashboard</a>
+        <a href="/leads">Leads</a>
+      </div>
+    </div>
+  </nav>
+
+  <section class="hero" style="padding:60px 24px 24px;">
+    <div class="hero-inner" style="text-align:center;">
+      <h1 class="hero-title" style="font-size:42px;">Pricing</h1>
+      <p class="hero-sub">No card needed for 14-day trial. Cancel anytime.</p>
+    </div>
+  </section>
+
+  <section class="how" style="margin-top:30px;">
+    <div class="how-grid" style="grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));">
+      <div class="how-card" style="text-align:center; padding:36px;">
+        <h3 style="font-size:14px; color:var(--text-3); text-transform:uppercase; letter-spacing:0.1em;">Starter</h3>
+        <div style="font-size:48px; font-weight:800; margin:8px 0; background:var(--grad); -webkit-background-clip:text; background-clip:text; -webkit-text-fill-color:transparent;">$299</div>
+        <div style="color:var(--text-3); font-size:13px; margin-bottom:20px;">per month</div>
+        <ul style="list-style:none; text-align:left; color:var(--text-2); font-size:14px; line-height:2;">
+          <li>✓ 50 leads / month</li>
+          <li>✓ 1 niche</li>
+          <li>✓ Daily fresh signals</li>
+          <li>✓ Email + source URL</li>
+          <li>✓ CSV export</li>
+        </ul>
+      </div>
+      <div class="how-card" style="text-align:center; padding:36px; border-color:var(--accent); position:relative;">
+        <div style="position:absolute; top:-12px; left:50%; transform:translateX(-50%); background:var(--grad); color:white; padding:4px 12px; border-radius:999px; font-size:11px; font-weight:700; letter-spacing:0.05em;">MOST POPULAR</div>
+        <h3 style="font-size:14px; color:var(--text-3); text-transform:uppercase; letter-spacing:0.1em;">Agency</h3>
+        <div style="font-size:48px; font-weight:800; margin:8px 0; background:var(--grad); -webkit-background-clip:text; background-clip:text; -webkit-text-fill-color:transparent;">$999</div>
+        <div style="color:var(--text-3); font-size:13px; margin-bottom:20px;">per month</div>
+        <ul style="list-style:none; text-align:left; color:var(--text-2); font-size:14px; line-height:2;">
+          <li>✓ 250 leads / month</li>
+          <li>✓ 3 niches</li>
+          <li>✓ Hourly fresh signals</li>
+          <li>✓ Verified emails (SMTP probe)</li>
+          <li>✓ XLSX + CRM export</li>
+          <li>✓ Slack alerts</li>
+        </ul>
+      </div>
+      <div class="how-card" style="text-align:center; padding:36px;">
+        <h3 style="font-size:14px; color:var(--text-3); text-transform:uppercase; letter-spacing:0.1em;">Enterprise</h3>
+        <div style="font-size:48px; font-weight:800; margin:8px 0; background:var(--grad); -webkit-background-clip:text; background-clip:text; -webkit-text-fill-color:transparent;">$2,499</div>
+        <div style="color:var(--text-3); font-size:13px; margin-bottom:20px;">per month</div>
+        <ul style="list-style:none; text-align:left; color:var(--text-2); font-size:14px; line-height:2;">
+          <li>✓ Unlimited leads</li>
+          <li>✓ All 10 niches</li>
+          <li>✓ Real-time signals</li>
+          <li>✓ Custom triggers</li>
+          <li>✓ White-label option</li>
+          <li>✓ Dedicated CSM</li>
+        </ul>
+      </div>
+    </div>
+  </section>
+
+  <section class="cta-block" style="margin-top:40px;">
+    <div class="cta-block-content">
+      <h2>Start your 14-day trial</h2>
+      <p>No card. No spam. Get a sample export within 24h.</p>
+      <form class="cta-email-row" action="/pricing" method="post">
+        <input type="email" name="email" placeholder="you@yoursite.com" required {% if email %}value="{{ email }}"{% endif %}>
+        <button type="submit" class="cta-primary">Start trial</button>
+      </form>
+      {% if submitted %}
+      <div class="small" style="color:var(--good);">✓ Got it — we'll email you within 24h with first lead pack.</div>
+      {% else %}
+      <div class="small">No card needed for 14-day trial · We never spam</div>
+      {% endif %}
+    </div>
+  </section>
+
+  <footer class="footer">
+    <div>OutreachOS Signals · Built for B2B outbound teams · 2026</div>
+    <div class="footer-links">
+      <a href="/">Home</a>
+      <a href="/dashboard">Dashboard</a>
+    </div>
+  </footer>
+</body>
+</html>

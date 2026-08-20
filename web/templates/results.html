@@ -1,0 +1,93 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>5 Leads for {{ url }} · OutreachOS Signals</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <link href="/static/style.css" rel="stylesheet">
+</head>
+<body class="results">
+  <nav class="top-nav">
+    <div class="nav-inner">
+      <a href="/" class="brand">
+        <span class="brand-mark">◉</span> OutreachOS Signals
+      </a>
+      <div class="nav-links">
+        <a href="/">Try another</a>
+        <a href="/dashboard">Dashboard</a>
+        <a href="/leads">All leads</a>
+        <a href="/pricing" class="nav-cta">Get Full Access</a>
+      </div>
+    </div>
+  </nav>
+
+  <section class="results-hero">
+    <h1>5 leads for you</h1>
+    <div class="url-shown">{{ url }}</div>
+    {% if niche_name %}
+    <div class="niche-tag">Detected niche: {{ niche_name }} · confidence {{ niche_conf }}%</div>
+    {% else %}
+    <div class="niche-tag" style="color:var(--warn); border-color:var(--warn);">Niche not detected — showing top signals from all categories</div>
+    {% endif %}
+  </section>
+
+  <div class="lead-list">
+    {% for lead in leads %}
+    <div class="lead-card">
+      <div>
+        <div class="lead-rank">#{{ loop.index }} · {{ lead.source }}</div>
+        <div class="lead-company">{{ lead.company_name or 'Unknown' }}</div>
+        <div class="lead-text">{{ lead.text }}</div>
+        <div class="lead-meta">
+          <span class="source">{{ lead.source }}</span>
+          <span>{{ lead.age_days }}d old</span>
+          {% if lead.niche_name %}<span>{{ lead.niche_name }}</span>{% endif %}
+        </div>
+      </div>
+      <div class="lead-score">
+        <div class="score-num">{{ "%.0f"|format(lead.score * 100) }}</div>
+        <div class="score-label">score</div>
+        <div class="lead-age">
+          {% if lead.score >= 0.7 %}<span class="score-badge score-hot">HOT</span>
+          {% elif lead.score >= 0.4 %}<span class="score-badge score-warm">WARM</span>
+          {% else %}<span class="score-badge score-cold">COLD</span>{% endif %}
+        </div>
+      </div>
+    </div>
+    {% endfor %}
+
+    {% if not leads %}
+    <div class="lead-card" style="text-align:center;">
+      <div>
+        <div class="lead-company">No leads yet for this niche</div>
+        <div class="lead-text">We're collecting fresh signals daily. Try another URL or check back tomorrow — pipeline grows ~100 leads/day.</div>
+      </div>
+    </div>
+    {% endif %}
+  </div>
+
+  <section class="cta-block">
+    <div class="cta-block-content">
+      <h2>Want all 50+ leads per month?</h2>
+      <p>Fresh signals daily · verified emails · ICP-matched · direct export to your CRM. $299/mo, cancel anytime.</p>
+      <form class="cta-email-row" action="/pricing" method="post">
+        <input type="email" name="email" placeholder="you@yoursite.com" required>
+        <button type="submit" class="cta-primary">Get full access</button>
+      </form>
+      <div class="small">No card needed for 14-day trial · We never spam</div>
+    </div>
+  </section>
+
+  <footer class="footer">
+    <div>OutreachOS Signals · Built for B2B outbound teams · 2026</div>
+    <div class="footer-links">
+      <a href="/">Home</a>
+      <a href="/dashboard">Dashboard</a>
+      <a href="/api/signals">API</a>
+    </div>
+  </footer>
+</body>
+</html>

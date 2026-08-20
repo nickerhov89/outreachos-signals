@@ -1,0 +1,130 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>OutreachOS Signals — Find Leads Ready to Buy From You</title>
+  <meta name="description" content="Paste your site. We show you 5 companies actively hiring for roles your product sells to. Free.">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <link href="/static/style.css" rel="stylesheet">
+</head>
+<body class="landing">
+  <nav class="top-nav">
+    <div class="nav-inner">
+      <a href="/" class="brand">
+        <span class="brand-mark">◉</span> OutreachOS Signals
+      </a>
+      <div class="nav-links">
+        <a href="/dashboard">Dashboard</a>
+        <a href="/leads">Leads</a>
+        <a href="/pricing" class="nav-cta">Get Full Access</a>
+      </div>
+    </div>
+  </nav>
+
+  <section class="hero">
+    <div class="hero-inner">
+      <div class="hero-badge">
+        <span class="dot"></span> 539+ live signals · 10 B2B niches · Updated daily
+      </div>
+      <h1 class="hero-title">
+        Find leads <span class="grad">ready to buy</span><br>
+        from you — in 5 seconds
+      </h1>
+      <p class="hero-sub">
+        Paste your site, portfolio or LinkedIn. We'll detect your niche and show you
+        5 companies actively hiring for roles your product sells to.
+        <strong>No signup. Free.</strong>
+      </p>
+
+      <form class="hero-form" action="/generate" method="post" autocomplete="off">
+        <div class="form-row">
+          <input type="text" name="url" placeholder="yoursite.com or linkedin.com/in/you" required autofocus class="url-input" id="urlInput">
+          <button type="submit" class="cta-primary" id="submitBtn">Get my 5 leads →</button>
+        </div>
+        <div class="form-examples">
+          <span>Try:</span>
+          <a href="#" data-url="klaviyo.com">klaviyo.com</a>
+          <a href="#" data-url="greenhouse.io">greenhouse.io</a>
+          <a href="#" data-url="datadog.com">datadog.com</a>
+          <a href="#" data-url="snowflake.com">snowflake.com</a>
+        </div>
+      </form>
+
+      <div class="hero-stats">
+        <div class="stat"><div class="stat-num">539</div><div class="stat-label">Live signals</div></div>
+        <div class="stat"><div class="stat-num">10</div><div class="stat-label">B2B niches</div></div>
+        <div class="stat"><div class="stat-num">5s</div><div class="stat-label">To first lead</div></div>
+        <div class="stat"><div class="stat-num">$0</div><div class="stat-label">For first 5</div></div>
+      </div>
+    </div>
+  </section>
+
+  <section class="how">
+    <h2 class="how-title">How it works</h2>
+    <div class="how-grid">
+      <div class="how-card">
+        <div class="how-num">1</div>
+        <h3>Paste your site</h3>
+        <p>URL, portfolio, or LinkedIn — we read it in 1 second.</p>
+      </div>
+      <div class="how-card">
+        <div class="how-num">2</div>
+        <h3>We detect your niche</h3>
+        <p>10 B2B verticals from CRM to FinTech to Cloud. We match keywords + content.</p>
+      </div>
+      <div class="how-card">
+        <div class="how-num">3</div>
+        <h3>Get 5 hot leads</h3>
+        <p>Companies hiring the roles you sell to. With source URLs, score, age.</p>
+      </div>
+      <div class="how-card">
+        <div class="how-num">4</div>
+        <h3>Unlock full base</h3>
+        <p>50+ leads/month, fresh daily, with verified emails. $299/mo.</p>
+      </div>
+    </div>
+  </section>
+
+  <section class="niches">
+    <h2 class="how-title">10 B2B niches we cover</h2>
+    <div class="niche-pills">
+      <span class="pill">CRM / BPM</span>
+      <span class="pill">HRTech</span>
+      <span class="pill">MarTech</span>
+      <span class="pill">AI / Data</span>
+      <span class="pill">B2B SaaS</span>
+      <span class="pill">IT Services</span>
+      <span class="pill">Cloud / Security</span>
+      <span class="pill">FinTech</span>
+      <span class="pill">EdTech</span>
+      <span class="pill">Marketplace</span>
+    </div>
+  </section>
+
+  <footer class="footer">
+    <div>OutreachOS Signals · Built for B2B outbound teams · 2026</div>
+    <div class="footer-links">
+      <a href="/dashboard">Dashboard</a>
+      <a href="/api/signals">API</a>
+      <a href="/health">Status</a>
+    </div>
+  </footer>
+
+  <script>
+    document.querySelectorAll('.form-examples a').forEach(a => {
+      a.addEventListener('click', e => {
+        e.preventDefault();
+        document.getElementById('urlInput').value = a.dataset.url;
+      });
+    });
+    document.querySelector('.hero-form').addEventListener('submit', () => {
+      const btn = document.getElementById('submitBtn');
+      btn.disabled = true;
+      btn.textContent = 'Scanning…';
+    });
+  </script>
+</body>
+</html>
