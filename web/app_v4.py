@@ -435,6 +435,244 @@ app.mount("/static", StaticFiles(directory=str(STATIC_DIR)), name="static")
 # ============================================================
 # Routes
 # ============================================================
+
+# ============================================================
+def enrich_user(domain: str) -> dict | None:
+    """Apollo /organizations/enrich - returns full firmographics."""
+    if not APOLLO_KEY:
+        return None
+    r = _apollo_post("/organizations/enrich", {})
+    # The endpoint is GET, not POST
+    url = f"{APOLLO_BASE}/organizations/enrich?domain={domain}"
+    try:
+        req = urllib.request.Request(url, headers={"X-Api-Key": APOLLO_KEY})
+        with urllib.request.urlopen(req, timeout=20) as r:
+            data = json.loads(r.read())
+        return data.get("organization") or None
+    except Exception as ex:
+        print(f"  [APOLLO ORG ERR] {domain}: {ex}", flush=True)
+        return None
+
+# Flow B: /analyze + /targets (multi-param ICP + 20 target companies)
+# ============================================================
+import re as _re
+from collections import Counter as _Counter
+
+# Inline target matrix (mirrors /tmp/icp_matrix.py)
+TARGET_MATRIX = {
+    "sales engagement / conversation intelligence": {
+        "kw": ["sales","revenue","outbound","conversation","call","dialer","cadence"],
+        "targets": ["outreach.io","salesloft.com","apollo.io","chili-piper.com","drift.com","aircall.io","mixmax.com","yesware.com","calendly.com","lavender.ai","persana.ai","zoominfo.com","lusha.com","cognism.com","gong.io"],
+    },
+    "crm / bpm / sales ops": {
+        "kw": ["crm","sales","customer relationship","pipeline","deal","forecast","bpm"],
+        "targets": ["hubspot.com","pipedrive.com","close.com","copper.com","attio.com","folk.app","freshworks.com","zoho.com","bitrix24.com","insightly.com","creatio.com","nimble.com","snov.io","woodpecker.co"],
+    },
+    "martech / email automation": {
+        "kw": ["email","marketing","campaign","automation","sms","push","drip"],
+        "targets": ["klaviyo.com","customer.io","iterable.com","braze.com","segment.com","mparticle.com","sendgrid.com","mailgun.com","postmarkapp.com","beehiiv.com","convertkit.com","mailerlite.com","activecampaign.com","drip.com","sendlane.com"],
+    },
+    "b2b saas / productivity": {
+        "kw": ["saas","productivity","collaboration","project","task","notes","wiki"],
+        "targets": ["asana.com","monday.com","clickup.com","slack.com","airtable.com","coda.io","aha.io","typeform.com","miro.com","webflow.com","framer.com","cal.com","pitch.com","height.app","todoist.com","linear.app","zapier.com","make.com","n8n.io","fibery.io","trello.com","anytype.io"],
+    },
+    "design / prototyping": {
+        "kw": ["design","prototype","framer","figma","sketch","wireframe","ui","ux","visual"],
+        "targets": ["figma.com","sketch.com","invisionapp.com","marvelapp.com","framer.com","webflow.com","principleformac.com","origami.studio","uxpin.com","mockplus.com","balsamiq.com","proto.io","flowmapp.com","mockflow.com","draftium.com","sympli.io","zeplin.io","avocode.com","abstract.com"],
+    },
+    "cloud / infrastructure": {
+        "kw": ["cloud","infrastructure","hosting","devops","kubernetes","serverless","edge"],
+        "targets": ["netlify.com","railway.app","render.com","fly.io","planetscale.com","neon.tech","supabase.com","turso.tech","deno.com","upstash.com","bun.sh","vercel.com","northflank.com","koyeb.com"],
+    },
+    "ai / data / ml": {
+        "kw": ["ai","ml","machine learning","data","llm","model","vector","embeddings"],
+        "targets": ["scale.com","huggingface.co","replicate.com","pinecone.io","weights.com","anyscale.com","together.ai","fireworks.ai","modal.com","runpod.io","lambda.com","cohere.com","anthropic.com","openai.com","perplexity.ai","groq.com"],
+    },
+    "it / devops / security": {
+        "kw": ["security","siem","observability","monitoring","devops","vulnerability","compliance"],
+        "targets": ["datadoghq.com","splunk.com","newrelic.com","dynatrace.com","crowdstrike.com","okta.com","1password.com","snyk.io","wiz.io","sentinelone.com","tenable.com","rapid7.com","sumologic.com","logz.io","grafana.com"],
+    },
+    "hrtech / people ops": {
+        "kw": ["hr","human","payroll","hiring","recruiting","people","benefits"],
+        "targets": ["rippling.com","gusto.com","deel.com","remote.com","justworks.com","bamboohr.com","hibob.com","workable.com","lever.co","greenhouse.io","personio.com","factorialhr.com","workday.com","namely.com","lattice.com"],
+    },
+    "fintech / payments": {
+        "kw": ["fintech","payment","banking","card","transaction","invoice","treasury"],
+        "targets": ["brex.com","ramp.com","mercury.com","plaid.com","affirm.com","wise.com","checkout.com","bill.com","mollie.com","adyen.com","klarna.com","stripe.com","revolut.com","bunq.com","qonto.com"],
+    },
+    "edtech / online learning": {
+        "kw": ["education","learning","course","student","tutor","lms","training"],
+        "targets": ["duolingo.com","brilliant.org","skillshare.com","masterclass.com","coursera.org","udemy.com","pluralsight.com","udacity.com","khanacademy.org","edmodo.com","teachable.com","thinkific.com","circle.so"],
+    },
+    "marketplace / e-commerce": {
+        "kw": ["marketplace","commerce","retail","shop","store","checkout","fulfillment"],
+        "targets": ["etsy.com","vinted.com","gumroad.com","fiverr.com","upwork.com","toptal.com","arc.dev","contra.com","lemonsqueezy.com","podia.com","kofi.com","shipbob.com","deliverr.com"],
+    },
+    "marketplace / freelance / creator": {
+        "kw": ["marketplace","freelance","freelancer","gig","creator","talent","contractor","consultant"],
+        "targets": ["contra.com","fiverr.com","upwork.com","toptal.com","arc.dev","lemonsqueezy.com","gumroad.com","podia.com","kofi.com","outseta.com","cameo.com","substack.com","revue.com","sellfy.com","payhip.com","memberful.com","ghost.io"],
+    },
+    "legal / compliance": {
+        "kw": ["legal","contract","compliance","e-signature","policy","gdpr"],
+        "targets": ["docusign.com","pandadoc.com","hellosign.com","ironcladapp.com","ironclad.io","linkedsign.com","contractworks.com","termly.io","iubenda.com","privy.com"],
+    },
+    "support / customer success": {
+        "kw": ["support","help desk","ticketing","customer success","chatbot","knowledge base"],
+        "targets": ["zendesk.com","intercom.com","freshdesk.com","helpscout.com","drift.com","tidio.com","crisp.chat","liveagent.com","gainsight.com","totango.com","vitally.io","planhat.com","churnzero.com"],
+    },
+    "analytics / product": {
+        "kw": ["analytics","product analytics","events","funnel","cohort","dashboard","bi"],
+        "targets": ["amplitude.com","mixpanel.com","heap.io","posthog.com","hotjar.com","fullstory.com","logrocket.com","pendo.com","segment.com","snowplow.io","plausible.io","matomo.org"],
+    },
+    "content / seo / social": {
+        "kw": ["content","seo","social","blog","cms","scheduling","analytics"],
+        "targets": ["buffer.com","hootsuite.com","later.com","sproutsocial.com","semrush.com","ahrefs.com","moz.com","clearscope.com","surfer.com","frase.io","coschedule.com","planable.io","socialbee.com"],
+    },
+    "accounting / bookkeeping": {
+        "kw": ["accounting","bookkeeping","tax","invoicing","expense","finance ops"],
+        "targets": ["xero.com","quickbooks.com","freshbooks.com","waveapps.com","ramp.com","brex.com","mercury.com","pilot.com","bench.co","doola.com","found.com"],
+    },
+}
+
+
+def _detect_vertical(text: str) -> tuple[str, float]:
+    text = (text or "").lower()
+    scores = {}
+    for vertical, cfg in TARGET_MATRIX.items():
+        s = 0
+        for kw in cfg["kw"]:
+            if kw in text:
+                s += 2
+        for word in vertical.replace("/", " ").split():
+            if len(word) > 3 and word in text:
+                s += 1
+        scores[vertical] = s
+    if not scores:
+        return "b2b saas / productivity", 0.0
+    top = max(scores, key=scores.get)
+    conf = min(1.0, scores[top] / 10.0)
+    return top, conf
+
+
+def _user_titles(domain: str) -> tuple[list, list]:
+    """Get user's employee title keywords (FREE)."""
+    data = _apollo_post("/mixed_people/api_search", {
+        "q_organization_domains": domain, "page": 1, "per_page": 50,
+    })
+    if not data or not isinstance(data, dict):
+        return [], []
+    titles = []
+    for p in data.get("people", []):
+        t = p.get("title") or ""
+        if t:
+            titles.append(t.lower())
+    words = []
+    for t in titles:
+        for w in _re.split(r"[\s,/]+", t):
+            w = w.strip(".,()-:&")
+            if len(w) > 3 and w.isalpha():
+                words.append(w)
+    return _Counter(words).most_common(20), titles
+
+
+def _lpr_titles(titles: list) -> list:
+    LPR_KW = ["founder","co-founder","ceo","chief","cro","cmo","cfo","coo","cto","cpo","vp ","vice president","head of","director"]
+    out = []
+    for t in titles:
+        if any(k in t for k in LPR_KW):
+            out.append(t.title())
+    return list(dict.fromkeys(out))[:10]
+
+
+def _normalize_domain(s: str) -> str:
+    s = (s or "").strip().lower()
+    s = s.replace("https://", "").replace("http://", "").replace("www.", "")
+    return s.split("/")[0].split("?")[0]
+
+
+@app.post("/analyze")
+def analyze(request: Request, url: str = Form(...)):
+    """Multi-param ICP analysis from user URL. Returns JSON with full ICP profile + reasoning."""
+    domain = _normalize_domain(url)
+    org = enrich_user(domain)
+    if not org:
+        return JSONResponse({"ok": False, "error": f"Could not enrich {domain}"}, status_code=400)
+
+    kws, titles = _user_titles(domain)
+    lprs = _lpr_titles(titles)
+    text = " ".join([
+        (org.get("industry") or "").lower(),
+        " ".join((org.get("keywords") or [])).lower(),
+        " ".join([w for w, _ in kws]).lower(),
+    ])
+    vertical, conf = _detect_vertical(text)
+    emp = org.get("estimated_num_employees") or 50
+    size_band = [max(10, emp // 5), emp * 5]
+    geo = org.get("country") or "United States"
+
+    return JSONResponse({
+        "ok": True,
+        "user": {
+            "domain": domain,
+            "name": org.get("name"),
+            "industry": org.get("industry"),
+            "employees": emp,
+            "country": geo,
+            "city": org.get("city"),
+            "founded": org.get("founded_year"),
+            "keywords": (org.get("keywords") or [])[:8],
+            "linkedin": org.get("linkedin_url"),
+        },
+        "icp": {
+            "vertical": vertical,
+            "confidence": round(conf, 2),
+            "size_band": size_band,
+            "geo": geo,
+            "lpr_titles": lprs,
+            "title_keywords": [w for w, _ in kws[:10]],
+        },
+        "reasoning": [
+            f"Industry '{org.get('industry', '?')}' matched vertical '{vertical}' (conf={conf:.0%})",
+            f"User has {emp} employees → target size band {size_band[0]}-{size_band[1]}",
+            f"User in {geo} → matching geos: {geo}, English-speaking markets",
+            f"User employee titles indicate GTM: {', '.join([w for w, _ in kws[:5]])}",
+            f"LPR roles at user: {', '.join(lprs[:5]) if lprs else 'too small to detect'}",
+        ],
+        "sources_used": ["Apollo /organizations/enrich", "Apollo /mixed_people/api_search", "Vertical keyword matrix"],
+    })
+
+
+@app.post("/targets")
+def targets(request: Request, url: str = Form(...), n: str = Form(default="20"), vertical: str = Form(default="")):
+    """Get 20 target companies matching user's ICP. No contacts yet."""
+    domain = _normalize_domain(url)
+    # Re-run analysis if no vertical provided
+    if not vertical:
+        org = enrich_user(domain)
+        if not org:
+            return JSONResponse({"ok": False, "error": f"Could not enrich {domain}"}, status_code=400)
+        kws, _ = _user_titles(domain)
+        text = " ".join([
+            (org.get("industry") or "").lower(),
+            " ".join((org.get("keywords") or [])).lower(),
+            " ".join([w for w, _ in kws]).lower(),
+        ])
+        vertical, _ = _detect_vertical(text)
+
+    n_int = min(50, max(1, int(n) if n.isdigit() else 20))
+    cfg = TARGET_MATRIX.get(vertical, {})
+    candidates = [c for c in cfg.get("targets", []) if c != domain][:n_int]
+
+    return JSONResponse({
+        "ok": True,
+        "user_domain": domain,
+        "vertical": vertical,
+        "count": len(candidates),
+        "targets": [{"domain": d, "rank": i+1, "source": "matrix"} for i, d in enumerate(candidates)],
+    })
+
+
+
 @app.get("/", response_class=HTMLResponse)
 def landing():
     return HTMLResponse(env.get_template("landing.html").render())
@@ -581,8 +819,8 @@ def _rank_contacts(contacts: list[dict]) -> list[dict]:
 
 
 @app.post("/reveal")
-async def reveal(request: Request, email: str = Form(...), domains: str = Form(...), niche_id: str = Form(default="")):
-    """After user submits email, reveal 3 contacts from the chosen domains.
+async def reveal(request: Request, email: str = Form(...), domains: str = Form(...), niche_id: str = Form(default=""), max_reveals: str = Form(default="3")):
+    """After user submits email, reveal contacts (3 free / 5 paid) from the chosen domains.
     Order: 1) DB cache, 2) Outscraper live, 3) DIY SMTP fallback.
     Per contact: prefer corporate email + buyer title."""
     # 1. email validation
@@ -603,7 +841,8 @@ async def reveal(request: Request, email: str = Form(...), domains: str = Form(.
     # 4. fetch contacts for first 3 domains
     revealed = []
     with db() as conn:
-        for d in doms[:3]:
+        cap = 5 if str(max_reveals).lower() in ("5", "paid", "true") else 3
+        for d in doms[:cap]:
             contact_obj = None
             company_name = None
             cached_contacts = []
