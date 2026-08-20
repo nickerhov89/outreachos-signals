@@ -114,9 +114,16 @@ def _get_total_events() -> int:
         return 0
 
 
-# Make available to all templates
-templates.env.globals["range_niches"] = NICHES
-templates.env.globals["total_events"] = _get_total_events
+def base_context(request: Request, **extra) -> dict:
+    """Common template context for all pages."""
+    ctx = {
+        "request": request,
+        "range_niches": NICHES,
+        "total_events": _get_total_events(),
+        "source_colors": SOURCE_COLORS,
+    }
+    ctx.update(extra)
+    return ctx
 
 
 # ─── ROUTES ───────────────────────────────────────────────────
@@ -171,14 +178,13 @@ async def dashboard(request: Request):
             ORDER BY cl.score DESC, e.collected_at DESC
             LIMIT 10
         """).fetchall()
-    return templates.TemplateResponse("dashboard.html", {
-        "request": request,
-        "kpis": kpis,
-        "niche_stats": niche_stats,
-        "sources": [dict(r) for r in sources],
-        "recent": [dict(r) for r in recent],
-        "source_colors": SOURCE_COLORS,
-    })
+    return templates.TemplateResponse("dashboard.html", base_context(
+        request,
+        kpis=kpis,
+        niche_stats=niche_stats,
+        sources=[dict(r) for r in sources],
+        recent=[dict(r) for r in recent],
+    ))
 
 
 @app.get("/niche/{niche_id}", response_class=HTMLResponse)
@@ -210,13 +216,12 @@ async def niche_page(request: Request, niche_id: int, min_score: float = 0):
                 ORDER BY e.collected_at DESC
                 LIMIT 200
             """, (niche_id, f"%{niche['name'].split()[0]}%")).fetchall()
-    return templates.TemplateResponse("niche.html", {
-        "request": request,
-        "niche": niche,
-        "signals": [dict(r) for r in rows],
-        "min_score": min_score,
-        "source_colors": SOURCE_COLORS,
-    })
+    return templates.TemplateResponse("niche.html", base_context(
+        request,
+        niche=niche,
+        signals=[dict(r) for r in rows],
+        min_score=min_score,
+    ))
 
 
 @app.get("/signal/{event_id}", response_class=HTMLResponse)
@@ -245,11 +250,10 @@ async def signal_detail(request: Request, event_id: str):
             sig["raw_metadata_obj"] = json.loads(sig["raw_metadata"])
         except Exception:
             sig["raw_metadata_obj"] = {}
-    return templates.TemplateResponse("signal.html", {
-        "request": request,
-        "signal": sig,
-        "source_colors": SOURCE_COLORS,
-    })
+    return templates.TemplateResponse("signal.html", base_context(
+        request,
+        signal=sig,
+    ))
 
 
 @app.get("/leads", response_class=HTMLResponse)
@@ -276,12 +280,11 @@ async def leads_page(request: Request, min_score: float = 7.0):
         else:
             d["buyer_contacts"] = []
         leads.append(d)
-    return templates.TemplateResponse("leads.html", {
-        "request": request,
-        "leads": leads,
-        "min_score": min_score,
-        "source_colors": SOURCE_COLORS,
-    })
+    return templates.TemplateResponse("leads.html", base_context(
+        request,
+        leads=leads,
+        min_score=min_score,
+    ))
 
 
 @app.get("/api/signals")

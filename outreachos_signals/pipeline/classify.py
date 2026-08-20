@@ -1,8 +1,9 @@
-"""Claude Haiku 4.5 classifier — 5-dim scoring + first_angle + case_match.
-Pure stdlib HTTP, no SDK needed.
+"""OpenRouter-backed classifier — 5-dim scoring + first_angle + case_match.
+Uses Gemini 2.0 Flash via OpenRouter (compatible with OpenAI API).
 Reads unclassified events from signal_events, writes to signal_classifications."""
 import json
 import os
+import re
 import time
 import urllib.error
 import urllib.request
@@ -10,10 +11,10 @@ from pathlib import Path
 
 from ..db import ENV, conn, now_iso
 
-ANTHROPIC_URL = "https://api.anthropic.com/v1/messages"
-DEFAULT_MODEL = "claude-haiku-4-5-20251022"
+OPENROUTER_URL = "https://openrouter.ai/api/v1/chat/completions"
+DEFAULT_MODEL = "google/gemini-2.0-flash-001"
+# Alternatives: "google/gemini-2.0-flash-exp:free", "anthropic/claude-3.5-haiku", "openai/gpt-4o-mini"
 
-# 10 niches with structured info for the prompt
 NICHES_DESC = [
     {"id": 1, "name": "CRM / BPM / Automation", "icp": "B2B SaaS 50-500 emp, US/EU, sales-led"},
     {"id": 2, "name": "HRTech / Recruitment", "icp": "B2B SaaS scaling sales 30-200 emp, US/EU"},
@@ -57,15 +58,14 @@ Niches available:
 Return JSON only."""
 
 
-def call_claude(events: list[dict], model: str = None) -> list[dict]:
-    """Call Claude with batch of events, return list of classifications."""
-    api_key = ENV.get("ANTHROPIC_API_KEY", "")
+def call_openrouter(events: list[dict], model: str = None) -> list[dict]:
+    """Call OpenRouter with batch of events, return list of classifications."""
+    api_key = ENV.get("OPENROUTER_API_KEY", "")
     if not api_key:
-        raise RuntimeError("ANTHROPIC_API_KEY not in .env")
-    model = model or ENV.get("CLAUDE_MODEL", DEFAULT_MODEL)
+        raise RuntimeError("OPENROUTER_API_KEY not in .env")
+    model = model or ENV.get("CLASSIFIER_MODEL", DEFAULT_MODEL)
 
     niches_text = "\n".join(f"{n['id']}. {n['name']} — {n['icp']}" for n in NICHES_DESC)
-    # Batch up to 5 events per call (Haiku can handle, keeps cost down)
     results = []
     for ev in events:
         user_msg = USER_PROMPT_TEMPLATE.format(
@@ -80,22 +80,26 @@ def call_claude(events: list[dict], model: str = None) -> list[dict]:
         body = json.dumps({
             "model": model,
             "max_tokens": 800,
-            "system": SYSTEM_PROMPT,
-            "messages": [{"role": "user", "content": user_msg}],
+            "temperature": 0.2,
+            "response_format": {"type": "json_object"},
+            "messages": [
+                {"role": "system", "content": SYSTEM_PROMPT},
+                {"role": "user", "content": user_msg},
+            ],
         }).encode()
         req = urllib.request.Request(
-            ANTHROPIC_URL, data=body, method="POST",
+            OPENROUTER_URL, data=body, method="POST",
             headers={
-                "x-api-key": api_key,
-                "anthropic-version": "2023-06-01",
-                "content-type": "application/json",
+                "Authorization": f"Bearer {api_key}",
+                "Content-Type": "application/json",
+                "HTTP-Referer": "https://outreachos.pro",  # required by OpenRouter
+                "X-Title": "OutreachOS Signals",
             },
         )
         try:
             with urllib.request.urlopen(req, timeout=60) as r:
                 resp = json.loads(r.read())
-            text = resp["content"][0]["text"]
-            # Strip code fences if any
+            text = resp["choices"][0]["message"]["content"]
             text = text.strip()
             if text.startswith("```"):
                 text = re.sub(r"^```(?:json)?\s*", "", text)
@@ -103,28 +107,36 @@ def call_claude(events: list[dict], model: str = None) -> list[dict]:
             parsed = json.loads(text)
             parsed["event_id"] = ev["event_id"]
             results.append(parsed)
+        except urllib.error.HTTPError as e:
+            body_err = e.read().decode("utf-8", errors="ignore")[:200] if e.fp else ""
+            print(f"  [ERR {e.code}] event {ev.get('event_id', '?')[:8]}: {body_err}")
         except Exception as e:
             print(f"  [ERR] event {ev.get('event_id', '?')[:8]}: {e}")
-            continue
-        time.sleep(0.5)  # rate limit
+        time.sleep(0.3)
     return results
-
-
-import re  # for code-fence stripping above
 
 
 def fetch_unclassified(limit: int = 50) -> list[dict]:
     with conn() as c:
         rows = c.execute("""
             SELECT e.event_id, e.source, e.company_domain, e.company_name, e.event_date,
-                   e.raw_text, e.evidence_url, e.evidence_snippet
+                   e.raw_text, e.evidence_url, e.evidence_snippet, e.raw_metadata
             FROM signal_events e
             LEFT JOIN signal_classifications cl ON cl.event_id = e.event_id
             WHERE cl.event_id IS NULL
             ORDER BY e.collected_at DESC
             LIMIT ?
         """, (limit,)).fetchall()
-    return [dict(r) for r in rows]
+    out = []
+    for r in rows:
+        d = dict(r)
+        if d.get("raw_metadata"):
+            try:
+                d["raw_metadata"] = json.loads(d["raw_metadata"])
+            except Exception:
+                d["raw_metadata"] = {}
+        out.append(d)
+    return out
 
 
 def save_classifications(classifications: list[dict], model_version: str) -> int:
@@ -154,7 +166,7 @@ def save_classifications(classifications: list[dict], model_version: str) -> int
                     cl.get("exclusion_match"),
                     cl.get("first_angle"),
                     cl.get("case_match"),
-                    None,  # case_url
+                    None,
                     model_version,
                 ))
                 saved += 1
@@ -169,9 +181,9 @@ def main(batch: int = 20):
     if not events:
         print("  no unclassified events")
         return
-    print(f"  fetched {len(events)}, calling Claude Haiku 4.5…")
-    classifications = call_claude(events)
-    saved = save_classifications(classifications, DEFAULT_MODEL)
+    print(f"  fetched {len(events)}, calling {ENV.get('CLASSIFIER_MODEL', DEFAULT_MODEL)}…")
+    classifications = call_openrouter(events)
+    saved = save_classifications(classifications, ENV.get("CLASSIFIER_MODEL", DEFAULT_MODEL))
     print(f"  classified={len(classifications)} saved={saved}")
 
 
