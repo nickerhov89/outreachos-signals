@@ -79,7 +79,7 @@ def call_openrouter(events: list[dict], model: str = None) -> list[dict]:
         )
         body = json.dumps({
             "model": model,
-            "max_tokens": 800,
+            "max_tokens": 2000,
             "temperature": 0.2,
             "response_format": {"type": "json_object"},
             "messages": [
