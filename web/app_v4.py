@@ -12,6 +12,15 @@ import urllib.parse
 import json
 import os
 import re
+from concurrent.futures import ThreadPoolExecutor
+import sys as _sys_wiz
+_sys_wiz.path.insert(0, "/home/manager/outreachos-signals")
+try:
+    from outreachos_signals.on_demand_signals import aggregate_signal, boost_reason, pick_target_title as _pick_target_title
+except Exception as _wiz_imp_err:
+    aggregate_signal = None
+    boost_reason = None
+    _pick_target_title = None
 import sqlite3
 import yaml
 from datetime import datetime, timedelta, timezone
@@ -891,6 +900,36 @@ Schema: {{"targets":[{{"domain":"x.com","name":"X","country":"US","employees":10
         })
         if len(targets) >= n:
             break
+
+    # ===== On-demand signal enrichment (parallel, ~8-12s for 20 companies) =====
+    if aggregate_signal and targets:
+        with ThreadPoolExecutor(max_workers=5) as ex:
+            sigs = list(ex.map(lambda t: (t, aggregate_signal(t["domain"])), targets))
+        for tgt, sig in sigs:
+            tgt["signal_score"] = sig.get("total_score", 0)
+            tgt["primary_signal"] = sig.get("primary_signal", "none")
+            if boost_reason:
+                tgt["reason"] = boost_reason(sig, tgt["reason"])
+            if _pick_target_title:
+                tgt["target_title"] = _pick_target_title(sig, tgt.get("target_title", "VP Sales"))
+            # Cache hits in DB (fire-and-forget)
+            try:
+                with sqlite3.connect(str(DB_PATH)) as conn:
+                    for src_name, src_info in sig.get("sources", {}).items():
+                        if src_info.get("has_signal"):
+                            ev_id = f"on_demand_{src_name}_{tgt['domain']}_{int(time.time())}"
+                            conn.execute(
+                                """INSERT OR IGNORE INTO signal_events
+                                   (event_id, source, company_name, company_domain, raw_text, url, event_date, ingested_at)
+                                   VALUES (?, ?, ?, ?, ?, ?, datetime('now'), datetime('now'))""",
+                                (ev_id, f"on_demand_{src_name}", tgt["name"], tgt["domain"],
+                                 json.dumps(src_info)[:500], f"https://{tgt['domain']}"),
+                            )
+                    conn.commit()
+            except Exception:
+                pass
+        # Sort: companies with strong signals first
+        targets.sort(key=lambda t: (t.get("primary_signal") == "none", -t.get("signal_score", 0)))
 
     return {
         "icp": icp,
