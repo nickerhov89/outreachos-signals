@@ -118,6 +118,8 @@ BAD_DOMAINS = {
 # Apollo.io helpers (verified corporate emails, 1 credit/reveal)
 # ============================================================
 APOLLO_KEY = os.getenv("APOLLO_API_KEY", "")
+OPENROUTER_KEY = os.getenv("OPENROUTER_API_KEY", "")
+OPENROUTER_MODEL = os.getenv("CLASSIFIER_MODEL", "google/gemini-3.5-flash")
 APOLLO_BASE = "https://api.apollo.io/v1"
 
 # Daily cap: 30 reveals/day = $0.15-1.50 depending on plan
@@ -670,6 +672,260 @@ def targets(request: Request, url: str = Form(...), n: str = Form(default="20"),
         "count": len(candidates),
         "targets": [{"domain": d, "rank": i+1, "source": "matrix"} for i, d in enumerate(candidates)],
     })
+
+
+
+
+
+# ============================================================
+# Wizard: LLM-inferred ICP + signal-driven discovery (4-step UX)
+# ============================================================
+import urllib.request as _ur
+
+def _wizard_fetch_homepage(url: str) -> str:
+    try:
+        req = _ur.Request(url, headers={"User-Agent": "Mozilla/5.0 OutreachOS/0.1"})
+        with _ur.urlopen(req, timeout=10) as r:
+            html = r.read().decode("utf-8", errors="ignore")[:80000]
+        text = re.sub(r"<script.*?</script>", " ", html, flags=re.DOTALL)
+        text = re.sub(r"<style.*?</style>", " ", text, flags=re.DOTALL)
+        text = re.sub(r"<[^>]+>", " ", text)
+        text = re.sub(r"\s+", " ", text)
+        return text[:4000]
+    except Exception:
+        return ""
+
+
+def _wizard_llm_guess_icp(domain: str, homepage_text: str) -> dict:
+    if not OPENROUTER_KEY:
+        return {"error": "no OPENROUTER_KEY", "domain": domain}
+    prompt = f"""You are a B2B sales analyst. Given a company URL and homepage, infer their B2B sales profile.
+
+URL: {domain}
+
+Homepage text:
+{homepage_text[:3000]}
+
+Return STRICT JSON only (no markdown, no commentary):
+{{
+  "company_name": "string",
+  "niche": "string (e.g. 'B2B SaaS / CRM')",
+  "industry": "string",
+  "inferred_product": "one-line what they sell",
+  "size_band": [min, max],
+  "geo": "string",
+  "buyer_titles": ["string"],
+  "industry_keywords": ["string"],
+  "excluded_industries": ["string"],
+  "confidence": 0.0
+}}"""
+    body = json.dumps({
+        "model": OPENROUTER_MODEL,
+        "max_tokens": 1500,
+        "temperature": 0.2,
+        "messages": [
+            {"role": "system", "content": "You are a B2B sales analyst. Return strict JSON only, no markdown, no commentary."},
+            {"role": "user", "content": prompt},
+        ],
+    }).encode()
+    req = _ur.Request(
+        "https://openrouter.ai/api/v1/chat/completions",
+        data=body,
+        headers={"Authorization": f"Bearer {OPENROUTER_KEY}", "Content-Type": "application/json"},
+    )
+    try:
+        with _ur.urlopen(req, timeout=60) as r:
+            data = json.loads(r.read())
+        text = data["choices"][0]["message"]["content"]
+        text = re.sub(r"^```(?:json)?\s*", "", text.strip())
+        text = re.sub(r"\s*```$", "", text.strip())
+        m = re.search(r"\{.*\}", text, re.DOTALL)
+        if m:
+            text = m.group(0)
+        text = re.sub(r",\s*([}\]])", r"\1", text)
+        try:
+            parsed = json.loads(text)
+            parsed["domain"] = domain  # always string
+            if isinstance(parsed.get("size_band"), list):
+                parsed["size_band"] = [int(x) for x in parsed["size_band"]]
+            return parsed
+        except Exception:
+            return {"error": f"json_parse_failed: {text[:200]}", "domain": domain}
+    except Exception as e:
+        return {"error": f"llm_parse_failed: {e}", "domain": domain}
+
+
+def _wizard_discover(icp: dict, n: int = 20) -> dict:
+    """Fast target generation: LLM only (no Apollo). Apollo runs in /reveal on demand.
+    Returns raw 20 targets in 5-10s. Avoids competitors via strict prompt.
+    """
+    kws = icp.get("industry_keywords", [])
+    titles = icp.get("buyer_titles", [])
+    industry = icp.get("industry", "")
+    geo = icp.get("geo", "")
+    size_band = icp.get("size_band", [50, 200])
+    if isinstance(size_band, list) and len(size_band) == 2:
+        size_min, size_max = int(size_band[0]), int(size_band[1])
+    else:
+        size_min, size_max = 50, 200
+    inferred = icp.get("inferred_product", "")
+    company = icp.get("company_name", "?")
+    excluded = icp.get("excluded_industries", [])
+
+    if not kws and not titles and not industry:
+        return {"icp": icp, "raw_count": 0, "validated_count": 0, "targets": [], "error": "no keywords"}
+
+    prompt = f"""You are a B2B sales strategist finding IDEAL CUSTOMER companies for the user's product.
+
+USER PRODUCT (DO NOT INCLUDE AS A TARGET — these are the SELLER):
+- Company: {company}
+- Product: {inferred}
+- Their industry: {industry}
+- Their keywords: {', '.join(kws[:10])}
+
+TASK: Generate {n} ideal CUSTOMER companies (companies that WOULD BUY the user's product to solve their pain).
+- These are PROSPECTS, not competitors.
+- DO NOT include any company in the same vertical as the seller (e.g. if user sells cold email tool, don't include other cold email tools, sales engagement, email automation, outreach tools).
+- DO include companies in ADJACENT verticals that have a sales team needing cold outreach (B2B SaaS, agencies, recruiters, fintech sales teams, IT services, consultants).
+- Size: {size_min}-{size_max} employees preferred.
+- Geo: {geo} preferred, then English-speaking countries.
+- Excluded industries: {', '.join(excluded[:5])}.
+
+For each target provide: domain (no https), name, country, employees (number), industry, target_title (the LPR who would buy).
+
+CRITICAL: Return STRICT JSON only, no markdown, no commentary.
+Schema: {{"targets":[{{"domain":"x.com","name":"X","country":"US","employees":100,"industry":"B2B SaaS","target_title":"VP Sales"}}, ...{n} entries]}}"""
+
+    body = json.dumps({
+        "model": OPENROUTER_MODEL,
+        "max_tokens": 6000,
+        "temperature": 0.4,
+        "messages": [
+            {"role": "system", "content": "You are a B2B sales strategist. Find PROSPECT companies, NOT competitors. Return strict JSON only."},
+            {"role": "user", "content": prompt},
+        ],
+    }).encode()
+    t0 = time.time()
+    try:
+        req = _ur.Request(
+            "https://openrouter.ai/api/v1/chat/completions",
+            data=body,
+            headers={"Authorization": f"Bearer {OPENROUTER_KEY}", "Content-Type": "application/json"},
+        )
+        with _ur.urlopen(req, timeout=60) as r:
+            data = json.loads(r.read())
+        text = data["choices"][0]["message"]["content"]
+    except Exception as e:
+        return {"error": f"llm_failed: {e}", "icp": icp, "targets": [], "raw_count": 0, "validated_count": 0, "elapsed": round(time.time()-t0,1)}
+
+    text = re.sub(r"^```(?:json)?\s*", "", text.strip())
+    text = re.sub(r"\s*```$", "", text.strip())
+    m2 = re.search(r"\{.*\}", text, re.DOTALL)
+    if m2:
+        text = m2.group(0)
+    try:
+        parsed = json.loads(re.sub(r",\s*([}\]])", r"\1", text))
+    except Exception as e:
+        return {"error": f"parse_failed: {e}", "raw_text": text[:300], "icp": icp, "targets": [], "raw_count": 0, "validated_count": 0, "elapsed": round(time.time()-t0,1)}
+
+    # Filter the seller themselves
+    seller_domain = (icp.get("domain") or "").lower().replace("https://", "").replace("http://", "").split("/")[0]
+    seller_name = (icp.get("company_name") or "").lower()
+    user_industry = (icp.get("industry") or "").lower()
+    user_kws = [w for w in (kws + [industry]) if w]
+    user_kw_set = set()
+    for kw in user_kws:
+        user_kw_set.update(w.lower() for w in str(kw).split() if len(w) > 3)
+
+    targets = []
+    seen_domains = set()
+    for t in parsed.get("targets", []):
+        dom = (t.get("domain") or "").strip().lower().replace("https://", "").replace("http://", "").split("/")[0]
+        if not dom or "." not in dom or dom in seen_domains:
+            continue
+        if seller_domain and (seller_domain == dom or dom.endswith("." + seller_domain) or seller_domain.endswith("." + dom)):
+            continue
+        nm = (t.get("name") or "").lower()
+        if seller_name and seller_name in nm:
+            continue
+        # Filter obvious competitors (any target whose industry overlaps user keywords heavily)
+        tgt_industry = (t.get("industry") or "").lower()
+        tgt_kw_set = set(w for w in tgt_industry.split() if len(w) > 3)
+        overlap = len(user_kw_set & tgt_kw_set) / max(len(user_kw_set), 1) if user_kw_set else 0
+        if overlap > 0.4:
+            continue  # likely competitor
+        seen_domains.add(dom)
+        try:
+            emp = int(t.get("employees") or 0)
+        except Exception:
+            emp = 0
+        targets.append({
+            "domain": dom,
+            "name": t.get("name") or dom,
+            "country": (t.get("country") or "").upper()[:3],
+            "employees": emp,
+            "industry": t.get("industry") or "",
+            "target_title": t.get("target_title") or "VP Sales",
+            "reason": f"Adjacent vertical ({t.get('industry', 'B2B')}) — likely needs {inferred or 'your product'}",
+            "competitor_score": round(overlap, 2),
+        })
+        if len(targets) >= n:
+            break
+
+    return {
+        "icp": icp,
+        "raw_count": len(parsed.get("targets", [])),
+        "validated_count": len(targets),
+        "targets": targets,
+        "elapsed": round(time.time()-t0, 1),
+    }
+
+@app.get("/wizard", response_class=HTMLResponse)
+def wizard_page(request: Request):
+    return HTMLResponse(env.get_template("wizard.html").render())
+
+
+@app.post("/api/guess_icp")
+async def api_guess_icp(request: Request, url: str = Form(...)):
+    norm = _normalize_url(url)
+    domain = norm[0] if isinstance(norm, tuple) else norm
+    if not domain:
+        return JSONResponse({"ok": False, "error": "Invalid URL"}, status_code=400)
+    full_url = f"https://{domain}"
+    text = _wizard_fetch_homepage(full_url)
+    if not text:
+        text = _wizard_fetch_homepage(f"http://{domain}")
+    icp = _wizard_llm_guess_icp(domain, text)
+    if 'error' in icp:
+        return JSONResponse({"ok": False, "error": icp["error"]}, status_code=500)
+    icp["domain"] = domain
+    return JSONResponse({"ok": True, "icp": icp})
+
+
+@app.post("/api/wizard_discover")
+async def api_wizard_discover(request: Request, icp_json: str = Form(...), email: str = Form(default="")):
+    """Run discovery with user-edited ICP. Email optional (for logging)."""
+    try:
+        icp = json.loads(icp_json)
+    except Exception:
+        return JSONResponse({"ok": False, "error": "bad icp_json"}, status_code=400)
+    # log email if provided
+    if email and email.strip():
+        try:
+            with db() as conn:
+                conn.execute("""
+                    insert into lead_views (email, url_input, niche_id, domains_json,
+                                             contacts_revealed, ip_address, user_agent, antifraud_score, paid_status)
+                    values (?, ?, ?, ?, ?, ?, ?, ?, ?)
+                """, (email.lower().strip(), icp.get("domain", ""), None, "[]", 0,
+                      request.client.host if request.client else "0.0.0.0",
+                      request.headers.get("user-agent", "")[:80], 0.0, "free"))
+                conn.commit()
+        except Exception:
+            pass
+    # run discovery
+    result = _wizard_discover(icp, n=20)
+    return JSONResponse(result)
 
 
 
