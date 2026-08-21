@@ -582,3 +582,38 @@ h2 { font-size: 18px; font-weight: 600; margin-bottom: 16px; }
 @media (max-width: 600px) {
   .contact-box { grid-template-columns: 1fr; }
 }
+
+
+/* Signal chips */
+.sig-chips { display: flex; flex-wrap: wrap; gap: 6px; margin: 10px 0 6px; }
+.sig-chip {
+  display: inline-block; padding: 3px 8px; border-radius: 12px;
+  font-size: 11px; font-weight: 500; background: rgba(255,255,255,0.06);
+  border: 1px solid rgba(255,255,255,0.1); color: #c4c8d4;
+}
+.sig-chip.sig-hire { color: #4ade80; border-color: rgba(74,222,128,0.3); background: rgba(74,222,128,0.08); }
+.sig-chip.sig-news { color: #facc15; border-color: rgba(250,204,21,0.3); background: rgba(250,204,21,0.08); }
+.sig-chip.sig-hn   { color: #f97316; border-color: rgba(249,115,22,0.3); background: rgba(249,115,22,0.08); }
+.sig-chip.sig-gh   { color: #94a3b8; }
+.sig-chip.sig-tw   { color: #1d9bf0; border-color: rgba(29,155,240,0.3); background: rgba(29,155,240,0.08); }
+.sig-chip.sig-th   { color: #ec4899; border-color: rgba(236,72,153,0.3); background: rgba(236,72,153,0.08); }
+.sig-chip.sig-portal { color: #a78bfa; border-color: rgba(167,139,250,0.3); background: rgba(167,139,250,0.08); }
+
+/* Open contacts button */
+.lead-card .actions { margin-top: 12px; }
+.btn-reveal {
+  padding: 7px 14px; border-radius: 8px; cursor: pointer;
+  background: linear-gradient(135deg, #7c3aed, #2563eb);
+  color: white; border: none; font-size: 13px; font-weight: 600;
+  transition: all 0.2s;
+}
+.btn-reveal:hover { transform: translateY(-1px); box-shadow: 0 4px 12px rgba(124,58,237,0.3); }
+.btn-reveal:disabled { opacity: 0.6; cursor: wait; }
+
+.contacts-box {
+  margin-top: 10px; padding: 10px; background: rgba(167,139,250,0.08);
+  border: 1px solid rgba(167,139,250,0.2); border-radius: 8px;
+  font-size: 13px; line-height: 1.6;
+}
+.contact-row { padding: 2px 0; }
+.contact-row a { color: #60a5fa; text-decoration: none; }

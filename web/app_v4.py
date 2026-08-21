@@ -1052,6 +1052,20 @@ Schema: {{"targets":[{{"domain":"x.com","name":"X","country":"US","employees":10
         overlap = len(user_kw_set & tgt_kw_set) / max(len(user_kw_set), 1) if user_kw_set else 0
         if overlap > 0.4:
             continue  # likely competitor
+        # HR/Staffing/Recruiting filter (NOT our customer)
+        nm_lower = (t.get("name") or "").lower()
+        HR_KW = ("staffing", "recruit", "headhunter", "head hunt", "talent acquisition",
+                 "hr solutions", "hr consulting", "human resources", "placement",
+                 "temp agency", "employment agency", "workforce solutions",
+                 "manpower", "personnel", "outplacement", "career services")
+        if any(kw in nm_lower for kw in HR_KW):
+            continue
+        # Restaurant/retail filter (clearly unrelated to B2B SaaS)
+        UNRELATED_KW = ("restaurant", "cafe", "pizzeria", "bakery", "food delivery",
+                        "beauty salon", "barbershop", "nail salon", "gym studio",
+                        "yoga studio", "dance studio", "tattoo")
+        if any(kw in nm_lower for kw in UNRELATED_KW):
+            continue
         seen_domains.add(dom)
         try:
             emp = int(t.get("employees") or 0)

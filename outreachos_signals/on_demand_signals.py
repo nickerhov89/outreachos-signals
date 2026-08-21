@@ -61,6 +61,21 @@ def _apify_run(actor_id: str, input_body: dict, token: str, max_wait_sec: int = 
         return []
 
 
+
+
+def _signal_text_relevant(text: str, domain: str) -> bool:
+    """Return True if text actually mentions the domain or its bare name (not random result)."""
+    if not text or not domain:
+        return False
+    text_l = text.lower()
+    if domain.lower() in text_l:
+        return True
+    bare = domain.split(".")[0].lower()
+    if len(bare) >= 4 and bare in text_l:
+        return True
+    # Also check subdomains ("acme.io" matches "acme")
+    return False
+
 def _pick_apify_token() -> str:
     import os as _os
     return _os.getenv("APIFY_TOKEN", "")
@@ -89,15 +104,19 @@ def twitter_signal(domain: str) -> Dict[str, Any]:
     intent_tweets = []
     for it in items:
         text = (it.get("text") or it.get("fullText") or "").lower()
-        if any(k in text for k in intent_kw):
-            user = it.get("user") or {}
-            intent_tweets.append({
-                "text": (it.get("text") or it.get("fullText") or "")[:200],
-                "user": user.get("screen_name") or user.get("name") or "",
-                "followers": user.get("followers", 0) or 0,
-                "url": it.get("url", ""),
-                "date": it.get("createdAt") or it.get("date") or "",
-            })
+        if not any(k in text for k in intent_kw):
+            continue
+        # Skip if text doesn't actually mention the domain (Apify returns noise)
+        if not _signal_text_relevant(it.get("text") or it.get("fullText") or "", domain):
+            continue
+        user = it.get("user") or {}
+        intent_tweets.append({
+            "text": (it.get("text") or it.get("fullText") or "")[:200],
+            "user": user.get("screen_name") or user.get("name") or "",
+            "followers": user.get("followers", 0) or 0,
+            "url": it.get("url", ""),
+            "date": it.get("createdAt") or it.get("date") or "",
+        })
     return {
         "has_signal": len(intent_tweets) > 0,
         "count": len(items),
@@ -129,14 +148,17 @@ def threads_signal(domain: str) -> Dict[str, Any]:
     intent_threads = []
     for it in items:
         text = (it.get("text") or it.get("caption") or "").lower()
-        if any(k in text for k in intent_kw):
-            user = it.get("user") or {}
-            intent_threads.append({
-                "text": (it.get("text") or it.get("caption") or "")[:200],
-                "user": user.get("username") or user.get("name") or "",
-                "url": it.get("url", ""),
-                "date": it.get("taken_at_timestamp") or it.get("post_date") or "",
-            })
+        if not any(k in text for k in intent_kw):
+            continue
+        if not _signal_text_relevant(it.get("text") or it.get("caption") or "", domain):
+            continue
+        user = it.get("user") or {}
+        intent_threads.append({
+            "text": (it.get("text") or it.get("caption") or "")[:200],
+            "user": user.get("username") or user.get("name") or "",
+            "url": it.get("url", ""),
+            "date": it.get("taken_at_timestamp") or it.get("post_date") or "",
+        })
     return {
         "has_signal": len(intent_threads) > 0,
         "count": len(items),
