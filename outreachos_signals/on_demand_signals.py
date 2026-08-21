@@ -22,6 +22,131 @@ from typing import List, Dict, Any
 
 UA = "Mozilla/5.0 OutreachOS/0.2 (on-demand signals)"
 
+# ============================================================
+# Apify helpers (Twitter + Threads via Apify actors)
+# ============================================================
+TWITTER_APIFY_ACTOR = "8CiMefkv2yLlD7vYl"
+THREADS_APIFY_ACTOR = "D15iJFBNZ9wgeWAhw"
+APIFY_BASE = "https://api.apify.com/v2"
+
+
+def _apify_run(actor_id: str, input_body: dict, token: str, max_wait_sec: int = 25) -> list:
+    """Run an Apify actor and return items. Polls until SUCCEEDED/FAILED/ABORTED."""
+    url = f"{APIFY_BASE}/acts/{actor_id}/runs?token={token}"
+    body = json.dumps(input_body).encode()
+    req = urllib.request.Request(url, data=body, headers={"Content-Type": "application/json"})
+    try:
+        with urllib.request.urlopen(req, timeout=15) as r:
+            run = json.loads(r.read()).get("data", {})
+    except Exception:
+        return []
+    if not run.get("id"):
+        return []
+    run_id = run["id"]
+    for _ in range(max_wait_sec // 3):
+        time.sleep(3)
+        try:
+            req2 = urllib.request.Request(f"{APIFY_BASE}/actor-runs/{run_id}?token={token}")
+            with urllib.request.urlopen(req2, timeout=10) as r:
+                status = json.loads(r.read())["data"]["status"]
+            if status in ("SUCCEEDED", "FAILED", "ABORTED", "TIMED-OUT"):
+                break
+        except Exception:
+            continue
+    try:
+        req3 = urllib.request.Request(f"{APIFY_BASE}/actor-runs/{run_id}/dataset/items?token={token}")
+        with urllib.request.urlopen(req3, timeout=15) as r:
+            return json.loads(r.read())
+    except Exception:
+        return []
+
+
+def _pick_apify_token() -> str:
+    import os as _os
+    return _os.getenv("APIFY_TOKEN", "")
+
+
+def twitter_signal(domain: str) -> Dict[str, Any]:
+    """Search Twitter (X) for mentions of domain + intent signals."""
+    token = _pick_apify_token()
+    if not token:
+        return {"has_signal": False, "score": 0, "error": "no_apify_token"}
+    queries = [
+        f'"{domain}" (hiring OR "looking for" OR "we need")',
+        f'"{domain}" ("alternative to" OR "switching from" OR recommend)',
+        f'"{domain}" (eval OR evaluating OR "in the market")',
+    ]
+    items = _apify_run(
+        TWITTER_APIFY_ACTOR,
+        {"keywords": queries, "maxTweets": 10, "maxItems": 30},
+        token,
+        max_wait_sec=12,
+    )
+    if not items:
+        return {"has_signal": False, "score": 0, "tweets": []}
+    intent_kw = ("hiring", "looking for", "need", "alternative", "switching", "evaluating",
+                 "in the market", "recommend", "best", "vs", "compare", "migrating", "moving")
+    intent_tweets = []
+    for it in items:
+        text = (it.get("text") or it.get("fullText") or "").lower()
+        if any(k in text for k in intent_kw):
+            user = it.get("user") or {}
+            intent_tweets.append({
+                "text": (it.get("text") or it.get("fullText") or "")[:200],
+                "user": user.get("screen_name") or user.get("name") or "",
+                "followers": user.get("followers", 0) or 0,
+                "url": it.get("url", ""),
+                "date": it.get("createdAt") or it.get("date") or "",
+            })
+    return {
+        "has_signal": len(intent_tweets) > 0,
+        "count": len(items),
+        "intent_count": len(intent_tweets),
+        "tweets": intent_tweets[:5],
+        "score": min(1.0, len(intent_tweets) / 3.0),
+    }
+
+
+def threads_signal(domain: str) -> Dict[str, Any]:
+    """Search Threads for mentions of domain + intent signals."""
+    token = _pick_apify_token()
+    if not token:
+        return {"has_signal": False, "score": 0, "error": "no_apify_token"}
+    queries = [
+        f'"{domain}" (hiring OR "looking for" OR "we need")',
+        f'"{domain}" ("alternative" OR "switching" OR recommend)',
+    ]
+    items = _apify_run(
+        THREADS_APIFY_ACTOR,
+        {"keywords": queries, "maxItems": 20},
+        token,
+        max_wait_sec=12,
+    )
+    if not items:
+        return {"has_signal": False, "score": 0, "threads": []}
+    intent_kw = ("hiring", "looking for", "need", "alternative", "switching",
+                 "evaluating", "in the market", "recommend")
+    intent_threads = []
+    for it in items:
+        text = (it.get("text") or it.get("caption") or "").lower()
+        if any(k in text for k in intent_kw):
+            user = it.get("user") or {}
+            intent_threads.append({
+                "text": (it.get("text") or it.get("caption") or "")[:200],
+                "user": user.get("username") or user.get("name") or "",
+                "url": it.get("url", ""),
+                "date": it.get("taken_at_timestamp") or it.get("post_date") or "",
+            })
+    return {
+        "has_signal": len(intent_threads) > 0,
+        "count": len(items),
+        "intent_count": len(intent_threads),
+        "threads": intent_threads[:5],
+        "score": min(1.0, len(intent_threads) / 3.0),
+    }
+
+
+
 
 def _http(url: str, timeout: int = 8) -> bytes:
     req = urllib.request.Request(url, headers={"User-Agent": UA, "Accept": "application/json"})
@@ -210,8 +335,8 @@ def aggregate_signal(domain: str, fast: bool = True) -> Dict[str, Any]:
     fast=True: parallel-ish (sequential but with short timeouts, ~5s total).
     Returns:
         {
-          domain, total_score, sources: {greenhouse:..., lever:..., hn:..., github:..., funding:...},
-          primary_signal: 'hiring'|'news'|'hn'|'github'|'none',
+          domain, total_score, sources: {greenhouse:..., lever:..., hn:..., github:..., funding:..., twitter:..., threads:...},
+          primary_signal: 'hiring'|'news'|'hn'|'github'|'social'|'none',
           reason: human-readable boost reason
         }
     """
@@ -221,8 +346,11 @@ def aggregate_signal(domain: str, fast: bool = True) -> Dict[str, Any]:
     sources["hn"] = hn_signal(domain)
     sources["github"] = github_signal(domain)
     sources["funding"] = funding_signal(domain)
+    # Social (Twitter + Threads via Apify) — slower, ~20s
+    sources["twitter"] = twitter_signal(domain)
+    sources["threads"] = threads_signal(domain)
 
-    # Pick primary signal — hiring > funding > hn > github
+    # Pick primary signal — hiring > funding > hn > github > social
     primary = "none"
     if sources["greenhouse"].get("has_signal") or sources["lever"].get("has_signal"):
         primary = "hiring"
@@ -232,6 +360,8 @@ def aggregate_signal(domain: str, fast: bool = True) -> Dict[str, Any]:
         primary = "hn"
     elif sources["github"].get("has_signal"):
         primary = "github"
+    elif sources["twitter"].get("has_signal") or sources["threads"].get("has_signal"):
+        primary = "social"
 
     total_score = sum(s.get("score", 0) for s in sources.values())
     return {
@@ -269,6 +399,15 @@ def boost_reason(signal: Dict[str, Any], base_reason: str) -> str:
         repos = sources.get("github", {}).get("public_repos", 0)
         if repos:
             return f"{base_reason} — Active OSS ({repos} public repos)"
+    if primary == "social":
+        tw = sources.get("twitter", {})
+        th = sources.get("threads", {})
+        if tw.get("tweets"):
+            tw_text = tw["tweets"][0]["text"][:80]
+            return f"{base_reason} — Twitter: \"{tw_text}\""
+        if th.get("threads"):
+            th_text = th["threads"][0]["text"][:80]
+            return f"{base_reason} — Threads: \"{th_text}\""
     return base_reason
 
 
