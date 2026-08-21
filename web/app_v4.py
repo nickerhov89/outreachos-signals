@@ -17,10 +17,12 @@ import sys as _sys_wiz
 _sys_wiz.path.insert(0, "/home/manager/outreachos-signals")
 try:
     from outreachos_signals.on_demand_signals import aggregate_signal, boost_reason, pick_target_title as _pick_target_title
+    from outreachos_signals.signal_adapters import explain_why_it_matters as _explain_why_it_matters
 except Exception as _wiz_imp_err:
     aggregate_signal = None
     boost_reason = None
     _pick_target_title = None
+    _explain_why_it_matters = None
 try:
     from outreachos_signals.portal_reader import portal_enrich as _portal_enrich, boost_reason_from_portal as _portal_boost
 except Exception as _portal_imp_err:
@@ -1091,7 +1093,12 @@ Schema: {{"targets":[{{"domain":"x.com","name":"X","country":"US","employees":10
         for tgt, sig in sigs:
             tgt["signal_score"] = sig.get("total_score", 0)
             tgt["primary_signal"] = sig.get("primary_signal", "none")
-            if boost_reason:
+            tgt["sources"] = sig.get("sources", {})  # store sources for UI chips
+            # DEEPER reasoning: explain_why_it_matters uses ICP + signals + target
+            # to articulate SPECIFIC buying triggers, not generic "likely needs"
+            if _explain_why_it_matters:
+                tgt["reason"] = _explain_why_it_matters(icp, sig.get("sources", {}), tgt)
+            elif boost_reason:
                 tgt["reason"] = boost_reason(sig, tgt["reason"])
             if _pick_target_title:
                 tgt["target_title"] = _pick_target_title(sig, tgt.get("target_title", "VP Sales"))
