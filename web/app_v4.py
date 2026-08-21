@@ -119,7 +119,44 @@ BAD_DOMAINS = {
 # ============================================================
 APOLLO_KEY = os.getenv("APOLLO_API_KEY", "")
 OPENROUTER_KEY = os.getenv("OPENROUTER_API_KEY", "")
-OPENROUTER_MODEL = os.getenv("CLASSIFIER_MODEL", "google/gemini-3.5-flash")
+OPENROUTER_MODEL = os.getenv("CLASSIFIER_MODEL", "nvidia/nemotron-3-ultra-550b-a55b:free")
+
+# LLM fallback chain (in case primary provider is overloaded)
+LLM_FALLBACK_MODELS = [
+    "nvidia/nemotron-3-ultra-550b-a55b:free",
+    "openrouter/free",
+    "google/gemma-4-31b-it:free",
+    "nvidia/nemotron-3-5-lightning:free",
+]
+
+
+def _llm_chat(messages: list, model: str = None, max_tokens: int = 1500, temperature: float = 0.3, timeout: int = 60) -> dict:
+    """Call LLM with fallback chain. Returns dict with 'content', 'model', 'error'."""
+    models_to_try = [model or OPENROUTER_MODEL] + [m for m in LLM_FALLBACK_MODELS if m != (model or OPENROUTER_MODEL)]
+    last_err = None
+    for mdl in models_to_try:
+        body = json.dumps({
+            "model": mdl,
+            "max_tokens": max_tokens,
+            "temperature": temperature,
+            "messages": messages,
+        }).encode()
+        req = _ur.Request(
+            "https://openrouter.ai/api/v1/chat/completions",
+            data=body,
+            headers={"Authorization": f"Bearer {OPENROUTER_KEY}", "Content-Type": "application/json"},
+        )
+        try:
+            with _ur.urlopen(req, timeout=timeout) as r:
+                data = json.loads(r.read())
+            if "choices" in data and data["choices"]:
+                return {"content": data["choices"][0]["message"]["content"], "model": mdl}
+            last_err = f"{mdl}: no choices ({list(data.keys())[:3]})"
+        except Exception as e:
+            last_err = f"{mdl}: {type(e).__name__}: {str(e)[:80]}"
+            continue
+    return {"content": "", "error": last_err or "all_models_failed"}
+
 APOLLO_BASE = "https://api.apollo.io/v1"
 
 # Daily cap: 30 reveals/day = $0.15-1.50 depending on plan
@@ -719,40 +756,31 @@ Return STRICT JSON only (no markdown, no commentary):
   "excluded_industries": ["string"],
   "confidence": 0.0
 }}"""
-    body = json.dumps({
-        "model": OPENROUTER_MODEL,
-        "max_tokens": 1500,
-        "temperature": 0.2,
-        "messages": [
+    result = _llm_chat(
+        messages=[
             {"role": "system", "content": "You are a B2B sales analyst. Return strict JSON only, no markdown, no commentary."},
             {"role": "user", "content": prompt},
         ],
-    }).encode()
-    req = _ur.Request(
-        "https://openrouter.ai/api/v1/chat/completions",
-        data=body,
-        headers={"Authorization": f"Bearer {OPENROUTER_KEY}", "Content-Type": "application/json"},
+        max_tokens=1500,
+        temperature=0.2,
     )
+    if not result.get("content"):
+        return {"error": f"llm_failed: {result.get('error', 'unknown')}", "domain": domain}
+    text = result["content"]
+    text = re.sub(r"^```(?:json)?\s*", "", text.strip())
+    text = re.sub(r"\s*```$", "", text.strip())
+    m = re.search(r"\{.*\}", text, re.DOTALL)
+    if m:
+        text = m.group(0)
+    text = re.sub(r",\s*([}\]])", r"\1", text)
     try:
-        with _ur.urlopen(req, timeout=60) as r:
-            data = json.loads(r.read())
-        text = data["choices"][0]["message"]["content"]
-        text = re.sub(r"^```(?:json)?\s*", "", text.strip())
-        text = re.sub(r"\s*```$", "", text.strip())
-        m = re.search(r"\{.*\}", text, re.DOTALL)
-        if m:
-            text = m.group(0)
-        text = re.sub(r",\s*([}\]])", r"\1", text)
-        try:
-            parsed = json.loads(text)
-            parsed["domain"] = domain  # always string
-            if isinstance(parsed.get("size_band"), list):
-                parsed["size_band"] = [int(x) for x in parsed["size_band"]]
-            return parsed
-        except Exception:
-            return {"error": f"json_parse_failed: {text[:200]}", "domain": domain}
+        parsed = json.loads(text)
+        parsed["domain"] = domain
+        if isinstance(parsed.get("size_band"), list):
+            parsed["size_band"] = [int(x) for x in parsed["size_band"]]
+        return parsed
     except Exception as e:
-        return {"error": f"llm_parse_failed: {e}", "domain": domain}
+        return {"error": f"json_parse_failed: {text[:200]}", "domain": domain}
 
 
 def _wizard_discover(icp: dict, n: int = 20) -> dict:
@@ -796,27 +824,19 @@ For each target provide: domain (no https), name, country, employees (number), i
 CRITICAL: Return STRICT JSON only, no markdown, no commentary.
 Schema: {{"targets":[{{"domain":"x.com","name":"X","country":"US","employees":100,"industry":"B2B SaaS","target_title":"VP Sales"}}, ...{n} entries]}}"""
 
-    body = json.dumps({
-        "model": OPENROUTER_MODEL,
-        "max_tokens": 6000,
-        "temperature": 0.4,
-        "messages": [
+    t0 = time.time()
+    result = _llm_chat(
+        messages=[
             {"role": "system", "content": "You are a B2B sales strategist. Find PROSPECT companies, NOT competitors. Return strict JSON only."},
             {"role": "user", "content": prompt},
         ],
-    }).encode()
-    t0 = time.time()
-    try:
-        req = _ur.Request(
-            "https://openrouter.ai/api/v1/chat/completions",
-            data=body,
-            headers={"Authorization": f"Bearer {OPENROUTER_KEY}", "Content-Type": "application/json"},
-        )
-        with _ur.urlopen(req, timeout=60) as r:
-            data = json.loads(r.read())
-        text = data["choices"][0]["message"]["content"]
-    except Exception as e:
-        return {"error": f"llm_failed: {e}", "icp": icp, "targets": [], "raw_count": 0, "validated_count": 0, "elapsed": round(time.time()-t0,1)}
+        max_tokens=6000,
+        temperature=0.4,
+        timeout=90,
+    )
+    if not result.get("content"):
+        return {"error": f"llm_failed: {result.get('error', 'unknown')}", "icp": icp, "targets": [], "raw_count": 0, "validated_count": 0, "elapsed": round(time.time()-t0,1)}
+    text = result["content"]
 
     text = re.sub(r"^```(?:json)?\s*", "", text.strip())
     text = re.sub(r"\s*```$", "", text.strip())
