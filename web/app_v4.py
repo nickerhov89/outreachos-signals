@@ -775,7 +775,7 @@ Return STRICT JSON only (no markdown, no commentary):
             {"role": "system", "content": "You are a B2B sales analyst. Return strict JSON only, no markdown, no commentary."},
             {"role": "user", "content": prompt},
         ],
-        max_tokens=1500,
+        max_tokens=3000,
         temperature=0.2,
     )
     if not result.get("content"):
@@ -787,14 +787,125 @@ Return STRICT JSON only (no markdown, no commentary):
     if m:
         text = m.group(0)
     text = re.sub(r",\s*([}\]])", r"\1", text)
+    text_clean = text.strip()
+    # Safety refusal detection
+    SAFETY_PHRASES = [
+        "user safety", "i cannot", "i can't", "i'm unable", "i am unable",
+        "i don't feel comfortable", "as an ai", "i must decline",
+        "safety:", "harmful", "inappropriate", "violates",
+        "content policy", "ethical concern", "not able to provide"
+    ]
+    text_lower = text_clean.lower()
+    is_safety = any(p in text_lower for p in SAFETY_PHRASES) and len(text_clean) < 200
     try:
         parsed = json.loads(text)
         parsed["domain"] = domain
         if isinstance(parsed.get("size_band"), list):
             parsed["size_band"] = [int(x) for x in parsed["size_band"]]
         return parsed
-    except Exception as e:
-        return {"error": f"json_parse_failed: {text[:200]}", "domain": domain}
+    except Exception:
+        # Try regex extract
+        domain_m = re.search(r'"domain"\s*:\s*"([^"]+\.[a-z]{2,})"', text)
+        name_m = re.search(r'"company_name"\s*:\s*"([^"]+)"', text)
+        if domain_m and name_m:
+            return {
+                "domain": domain_m.group(1).lower(),
+                "company_name": name_m.group(1),
+                "niche": "B2B SaaS (LLM partial)",
+                "industry": "Unknown",
+                "size_band": [10, 1000],
+                "geo": "Global",
+                "buyer_titles": ["Founder", "CEO", "Head of Sales"],
+                "industry_keywords": ["b2b", "saas"],
+                "excluded_industries": [],
+                "confidence": 0.3,
+            }
+        # Safety refusal -> use domain-based fallback
+        if is_safety:
+            return _domain_based_icp(domain)
+        return {"error": f"json_parse_failed: {text_clean[:200]}", "domain": domain, "safety_refusal": is_safety}
+
+
+
+
+def _domain_based_icp(domain: str) -> dict:
+    """Keyword-based ICP guess from domain alone (no LLM). Used as fallback when LLM is blocked."""
+    dom = domain.lower().split(".")[0]
+    tld = domain.lower().split(".")[-1]
+    # Geo from TLD
+    geo_map = {"ru": "Russia", "fr": "France", "de": "Germany", "uk": "United Kingdom",
+               "co.uk": "United Kingdom", "nl": "Netherlands", "es": "Spain",
+               "it": "Italy", "br": "Brazil", "ca": "Canada", "au": "Australia",
+               "in": "India", "jp": "Japan", "cn": "China", "pl": "Poland",
+               "mx": "Mexico", "se": "Sweden", "no": "Norway", "fi": "Finland",
+               "dk": "Denmark", "ch": "Switzerland", "at": "Austria", "be": "Belgium",
+               "ie": "Ireland", "pt": "Portugal", "cz": "Czech Republic",
+               "ua": "Ukraine", "kz": "Kazakhstan", "by": "Belarus", "tr": "Turkey",
+               "ae": "UAE", "sg": "Singapore", "il": "Israel", "kr": "South Korea"}
+    geo = geo_map.get(tld, "Global")
+    # Niche from common B2B keywords in domain
+    NICHES = {
+        "agency": ("B2B Marketing Agency", ["Marketing", "Advertising", "PR"]),
+        "consulting": ("B2B Consulting", ["Consulting", "Professional Services"]),
+        "consult": ("B2B Consulting", ["Consulting"]),
+        "software": ("B2B SaaS", ["Software", "SaaS"]),
+        "saas": ("B2B SaaS", ["Software", "SaaS"]),
+        "platform": ("B2B Platform", ["Platform", "Software"]),
+        "tech": ("B2B Technology", ["Technology", "Software"]),
+        "io": ("B2B SaaS", ["Software"]),
+        "ai": ("AI / Machine Learning", ["AI", "Machine Learning", "Software"]),
+        "data": ("Data & Analytics", ["Data", "Analytics", "Software"]),
+        "analytics": ("Data & Analytics", ["Data", "Analytics"]),
+        "crm": ("CRM Software", ["CRM", "Software"]),
+        "sales": ("B2B Sales Software", ["Sales", "Software"]),
+        "marketing": ("B2B Marketing Software", ["Marketing", "Software"]),
+        "outreach": ("Sales Outreach Platform", ["Sales", "Marketing", "Software"]),
+        "lead": ("Lead Generation Platform", ["Sales", "Marketing"]),
+        "recruit": ("HR Tech / Recruiting", ["HR", "Recruiting", "Software"]),
+        "hr": ("HR Tech", ["HR", "Software"]),
+        "fintech": ("FinTech", ["Finance", "Technology"]),
+        "pay": ("FinTech / Payments", ["Finance", "Payments"]),
+        "legal": ("Legal Tech", ["Legal", "Software"]),
+        "logistics": ("Logistics Tech", ["Logistics", "Software"]),
+        "edu": ("EdTech", ["Education", "Software"]),
+        "learn": ("EdTech", ["Education"]),
+        "health": ("Health Tech", ["Healthcare"]),
+        "med": ("Health Tech", ["Healthcare"]),
+        "shop": ("E-commerce", ["E-commerce", "Retail"]),
+        "store": ("E-commerce", ["E-commerce"]),
+        "food": ("Food Tech", ["Food", "Hospitality"]),
+        "travel": ("Travel Tech", ["Travel"]),
+        "realty": ("PropTech", ["Real Estate"]),
+        "estate": ("PropTech", ["Real Estate"]),
+        "media": ("Media Tech", ["Media"]),
+        "studio": ("Creative Agency", ["Design", "Creative"]),
+        "design": ("Design / Creative", ["Design", "Creative"]),
+        "lab": ("R&D / Lab", ["R&D", "Science"]),
+        "cloud": ("Cloud Infrastructure", ["Cloud", "Infrastructure"]),
+        "dev": ("Developer Tools", ["Developer Tools", "Software"]),
+        "api": ("Developer Tools / API", ["Developer Tools", "API"]),
+    }
+    niche = "B2B Services"
+    industry = "Professional Services"
+    for kw, (n, ind) in NICHES.items():
+        if kw in dom:
+            niche = n
+            industry = ind[0]
+            break
+    return {
+        "domain": domain,
+        "company_name": dom.capitalize(),
+        "niche": niche,
+        "industry": industry,
+        "inferred_product": f"{niche} (heuristic guess, LLM unavailable)",
+        "size_band": [10, 500],
+        "geo": geo,
+        "buyer_titles": ["Founder", "CEO", "Head of Sales", "VP Marketing"],
+        "industry_keywords": [niche.split()[0].lower() if niche else "b2b"],
+        "excluded_industries": ["B2C"],
+        "confidence": 0.3,
+        "fallback": "domain_heuristic",
+    }
 
 
 def _wizard_discover(icp: dict, n: int = 20) -> dict:
@@ -850,6 +961,11 @@ Schema: {{"targets":[{{"domain":"x.com","name":"X","country":"US","employees":10
     )
     if not result.get("content"):
         return {"error": f"llm_failed: {result.get('error', 'unknown')}", "icp": icp, "targets": [], "raw_count": 0, "validated_count": 0, "elapsed": round(time.time()-t0,1)}
+    # Check if LLM refused for safety on raw text
+    raw_lower = result["content"].strip().lower()
+    if any(p in raw_lower for p in ["user safety", "i cannot", "i'm unable", "as an ai"]) and len(result["content"].strip()) < 200:
+        # Try to fall back to Apollo enrichment only — return 0 targets
+        return {"error": "llm_refused_safety", "icp": icp, "targets": [], "raw_count": 0, "validated_count": 0, "elapsed": round(time.time()-t0,1), "message": "LLM refused for safety. Try a different company URL or skip ahead."}
     text = result["content"]
     text = re.sub(r"^```(?:json)?\s*", "", text.strip())
     text = re.sub(r"\s*```$", "", text.strip())
@@ -861,33 +977,54 @@ Schema: {{"targets":[{{"domain":"x.com","name":"X","country":"US","employees":10
         parsed = json.loads(re.sub(r",\s*([}\]])", r"\1", text))
     except Exception:
         pass
-    # Fallback: regex extract targets if JSON broken
+    # Fallback: regex extract targets if JSON broken.
+    # 3 strategies: nested, line-by-line, looser patterns
     if parsed is None or "targets" not in parsed:
-        domain_p = re.compile(r'"domain"\s*:\s*"([^"]+)"')
-        name_p = re.compile(r'"name"\s*:\s*"([^"]+)"')
-        emp_p = re.compile(r'"employees"\s*:\s*(\d+)')
-        title_p = re.compile(r'"target_title"\s*:\s*"([^"]+)"')
-        country_p = re.compile(r'"country"\s*:\s*"([A-Z]{2,3})"')
-        objs = re.findall(r'\{[^{}]*"(?:domain|name)"[^{}]*\}', text)
         recovered = []
-        for o in objs:
-            d = domain_p.search(o)
-            if not d: continue
-            rec = {"domain": d.group(1).lower().strip()}
-            nm = name_p.search(o)
-            if nm: rec["name"] = nm.group(1)
-            c = country_p.search(o)
-            if c: rec["country"] = c.group(1)
-            e = emp_p.search(o)
-            if e: rec["employees"] = int(e.group(1))
-            ttl = title_p.search(o)
-            if ttl: rec["target_title"] = ttl.group(1)
-            if rec["domain"] and "." in rec["domain"]:
+        # Strategy 1: find { ... } blocks (nested OK)
+        depth = 0
+        start = None
+        blocks = []
+        for i, ch in enumerate(text):
+            if ch == '{':
+                if depth == 0: start = i
+                depth += 1
+            elif ch == '}':
+                depth -= 1
+                if depth == 0 and start is not None:
+                    blocks.append(text[start:i+1])
+                    start = None
+        for blk in blocks:
+            dm = re.search(r'"domain"\s*:\s*"([^"]+\.[a-z]{2,})"', blk)
+            if not dm: continue
+            rec = {"domain": dm.group(1).lower().strip()}
+            for k, pat in [("name", r'"name"\s*:\s*"([^"]+)"'),
+                           ("country", r'"country"\s*:\s*"([A-Za-z]{2,3})"'),
+                           ("target_title", r'"target_title"\s*:\s*"([^"]+)"'),
+                           ("industry", r'"industry"\s*:\s*"([^"]+)"')]:
+                m = re.search(pat, blk)
+                if m: rec[k] = m.group(1)
+            em = re.search(r'"employees"\s*:\s*(\d+)', blk)
+            if em: rec["employees"] = int(em.group(1))
+            recovered.append(rec)
+        # Strategy 2: if no blocks found, scan line by line for domain patterns
+        if not recovered:
+            for line in text.split("\n"):
+                dm = re.search(r'"domain"\s*:\s*"([^"]+\.[a-z]{2,})"', line)
+                if not dm: continue
+                rec = {"domain": dm.group(1).lower().strip()}
+                nm = re.search(r'"name"\s*:\s*"([^"]+)"', line)
+                if nm: rec["name"] = nm.group(1)
+                em = re.search(r'"employees"\s*:\s*(\d+)', line)
+                if em: rec["employees"] = int(em.group(1))
                 recovered.append(rec)
         if recovered:
             parsed = {"targets": recovered}
         else:
-            return {"error": "parse_failed_no_targets", "raw_text": text[:300], "icp": icp, "targets": [], "raw_count": 0, "validated_count": 0, "elapsed": round(time.time()-t0,1)}
+            import sys as _sys_dbg
+            print(f"[DEBUG _wizard_discover] LLM returned no parseable targets, raw_text:", file=_sys_dbg.stderr, flush=True)
+            print(text[:1500], file=_sys_dbg.stderr, flush=True)
+            return {"error": "parse_failed_no_targets", "raw_text": text[:500], "icp": icp, "targets": [], "raw_count": 0, "validated_count": 0, "elapsed": round(time.time()-t0,1)}
 
     # Filter the seller themselves
     seller_domain = (icp.get("domain") or "").lower().replace("https://", "").replace("http://", "").split("/")[0]
