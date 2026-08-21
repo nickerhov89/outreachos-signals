@@ -21,6 +21,11 @@ except Exception as _wiz_imp_err:
     aggregate_signal = None
     boost_reason = None
     _pick_target_title = None
+try:
+    from outreachos_signals.portal_reader import portal_enrich as _portal_enrich, boost_reason_from_portal as _portal_boost
+except Exception as _portal_imp_err:
+    _portal_enrich = None
+    _portal_boost = None
 import sqlite3
 import yaml
 from datetime import datetime, timedelta, timezone
@@ -846,16 +851,43 @@ Schema: {{"targets":[{{"domain":"x.com","name":"X","country":"US","employees":10
     if not result.get("content"):
         return {"error": f"llm_failed: {result.get('error', 'unknown')}", "icp": icp, "targets": [], "raw_count": 0, "validated_count": 0, "elapsed": round(time.time()-t0,1)}
     text = result["content"]
-
     text = re.sub(r"^```(?:json)?\s*", "", text.strip())
     text = re.sub(r"\s*```$", "", text.strip())
     m2 = re.search(r"\{.*\}", text, re.DOTALL)
     if m2:
         text = m2.group(0)
+    parsed = None
     try:
         parsed = json.loads(re.sub(r",\s*([}\]])", r"\1", text))
-    except Exception as e:
-        return {"error": f"parse_failed: {e}", "raw_text": text[:300], "icp": icp, "targets": [], "raw_count": 0, "validated_count": 0, "elapsed": round(time.time()-t0,1)}
+    except Exception:
+        pass
+    # Fallback: regex extract targets if JSON broken
+    if parsed is None or "targets" not in parsed:
+        domain_p = re.compile(r'"domain"\s*:\s*"([^"]+)"')
+        name_p = re.compile(r'"name"\s*:\s*"([^"]+)"')
+        emp_p = re.compile(r'"employees"\s*:\s*(\d+)')
+        title_p = re.compile(r'"target_title"\s*:\s*"([^"]+)"')
+        country_p = re.compile(r'"country"\s*:\s*"([A-Z]{2,3})"')
+        objs = re.findall(r'\{[^{}]*"(?:domain|name)"[^{}]*\}', text)
+        recovered = []
+        for o in objs:
+            d = domain_p.search(o)
+            if not d: continue
+            rec = {"domain": d.group(1).lower().strip()}
+            nm = name_p.search(o)
+            if nm: rec["name"] = nm.group(1)
+            c = country_p.search(o)
+            if c: rec["country"] = c.group(1)
+            e = emp_p.search(o)
+            if e: rec["employees"] = int(e.group(1))
+            ttl = title_p.search(o)
+            if ttl: rec["target_title"] = ttl.group(1)
+            if rec["domain"] and "." in rec["domain"]:
+                recovered.append(rec)
+        if recovered:
+            parsed = {"targets": recovered}
+        else:
+            return {"error": "parse_failed_no_targets", "raw_text": text[:300], "icp": icp, "targets": [], "raw_count": 0, "validated_count": 0, "elapsed": round(time.time()-t0,1)}
 
     # Filter the seller themselves
     seller_domain = (icp.get("domain") or "").lower().replace("https://", "").replace("http://", "").split("/")[0]
@@ -930,6 +962,63 @@ Schema: {{"targets":[{{"domain":"x.com","name":"X","country":"US","employees":10
                 pass
         # Sort: companies with strong signals first
         targets.sort(key=lambda t: (t.get("primary_signal") == "none", -t.get("signal_score", 0)))
+
+    # ===== Portal cross-check (PostgreSQL: 139.60.162.12) =====
+    # Adds: in_portal flag, known LPR, PDL industry/size, funding, ATS cache
+    if _portal_enrich and targets:
+        try:
+            with ThreadPoolExecutor(max_workers=8) as ex:
+                portals = list(ex.map(lambda t: (t, _portal_enrich(t["domain"])), targets))
+            for tgt, pdata in portals:
+                tgt["portal"] = {
+                    "in_portal": pdata["in_portal"].get("found", False) if isinstance(pdata["in_portal"], dict) else False,
+                    "lpr_count": pdata["in_portal"].get("contact_count", 0) if isinstance(pdata["in_portal"], dict) else 0,
+                    "top_lpr": (pdata["in_portal"].get("contacts", [{}])[0] if isinstance(pdata["in_portal"], dict) and pdata["in_portal"].get("contacts") else {}),
+                    "pdl_industry": pdata["pdl"].get("industry", "") if isinstance(pdata["pdl"], dict) else "",
+                    "pdl_size": pdata["pdl"].get("size", "") if isinstance(pdata["pdl"], dict) else "",
+                    "funded": pdata["funded"].get("last_funding_type", "") if isinstance(pdata["funded"], dict) else "",
+                    "funded_amount": pdata["funded"].get("last_funding_usd", 0) if isinstance(pdata["funded"], dict) else 0,
+                    "ats_jobs": pdata["ats"].get("job_count", 0) if isinstance(pdata["ats"], dict) else 0,
+                }
+                if _portal_boost:
+                    tgt["reason"] = _portal_boost(pdata, tgt["reason"])
+                # Boost score
+                boost = 0
+                if tgt["portal"]["in_portal"]:
+                    boost += 2.0
+                    if tgt["portal"]["lpr_count"] > 0:
+                        boost += 1.5
+                if tgt["portal"]["funded"]:
+                    boost += 1.0
+                if tgt["portal"]["ats_jobs"] > 0:
+                    boost += 1.0
+                if tgt["portal"]["pdl_industry"]:
+                    boost += 0.5
+                tgt["signal_score"] = tgt.get("signal_score", 0) + boost
+                # Cache portal_match in signal_events
+                try:
+                    if tgt["portal"]["in_portal"] or tgt["portal"]["funded"] or tgt["portal"]["ats_jobs"]:
+                        with sqlite3.connect(str(DB_PATH)) as conn:
+                            ev_id = f"portal_match_{tgt['domain']}_{int(time.time())}"
+                            conn.execute(
+                                """INSERT OR IGNORE INTO signal_events
+                                   (event_id, source, company_name, company_domain, raw_text, url, event_date, ingested_at)
+                                   VALUES (?, ?, ?, ?, ?, ?, datetime('now'), datetime('now'))""",
+                                (ev_id, "portal_match", tgt["name"], tgt["domain"],
+                                 json.dumps(tgt["portal"])[:500], f"https://{tgt['domain']}"),
+                            )
+                            conn.commit()
+                except Exception:
+                    pass
+            # Re-sort: portal in-DB companies bubble to top
+            targets.sort(key=lambda t: (
+                not t.get("portal", {}).get("in_portal", False),
+                -t.get("signal_score", 0),
+            ))
+        except Exception as _portal_err:
+            # Don't fail the whole flow if Portal is down
+            for tgt in targets:
+                tgt.setdefault("portal", {"error": str(_portal_err)[:80]})
 
     return {
         "icp": icp,
